@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import '../styles/Profile.css';
+import { useNavigate } from 'react-router-dom';
+import './Profile.css';
 
-const Profile = ({ token }) => {
+const Profile = () => {
+  const token = localStorage.getItem("token");
+  console.log('Token in Profile:', token);
+  const navigate = useNavigate();
   const [editable, setEditable] = useState(false);
   const [formData, setFormData] = useState(null);
   const [errors, setErrors] = useState({});
@@ -10,6 +14,12 @@ const Profile = ({ token }) => {
 
   // Fetch the user profile from the API using the token
   useEffect(() => {
+    console.log('Token:', token); 
+    if (!token) {
+      navigate('/login'); // Redirect to login if no token
+      return;
+    }
+
     const fetchUserProfile = async () => {
       if (token) {
         try {
@@ -76,7 +86,7 @@ const Profile = ({ token }) => {
     <div className="profile-box">
       <div className="profile-header">
         <h2>Profile</h2>
-        <button onClick={() => setEditable(!editable)}>
+        <button onClick={() => setEditable(!editable)} className="edit-btn">
           {editable ? 'Cancel' : 'Edit'}
         </button>
       </div>

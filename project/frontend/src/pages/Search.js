@@ -1,43 +1,46 @@
-import React, { useState} from "react";
-import { useNavigate } from "react-router-dom"; 
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 const Search = () => {
   const [searchText, setSearchText] = useState("");
   const [conditionFilters, setConditionFilters] = useState([]);
   const [categoryFilters, setCategoryFilters] = useState([]);
   const [sortOption, setSortOption] = useState("latest");
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Example items data
-  const items = [
-    { 
-      itemId: "id",
-      name: "Laptop", 
-      price: 50000, 
-      description: 'A high-performance laptop.',
-      condition: "New", 
-      category: "Electronics", 
-      sellerId: "sellerId_1", // Placeholder, replace with actual seller ID from your User collection
-      quantity: 10, // Assume there are 10 items available
-    },
-    {   
-      itemId: "item_2",
-      name: "Desk Chair", 
-      price: 2000, 
-      condition: "Barely Used", 
-      category: "Furniture", 
-      sellerId: "sellerId_2", // Placeholder, replace with actual seller ID from your User collection
-    },
-    { 
-      itemId: "item_3",
-      name: "Textbook", 
-      price: 500, 
-      condition: "Used Enough", 
-      category: "Books", 
-      sellerId: "sellerId_3", // Placeholder, replace with actual seller ID from your User collection
-    },
-  ];
-  
+  const token = localStorage.getItem("token");
+
+  useEffect(() => {
+    const fetchItems = async () => {
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
+      try {
+        const response = await axios.get("http://localhost:5001/api/all-items", {
+          headers: {
+            Authorization: `Bearer ${token}`, // Attach the token in the headers
+          },
+        });
+
+        setItems(response.data);
+      } catch (error) {
+        console.error("Error fetching items:", error);
+        setError(error.response?.data?.message || error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchItems();
+  }, [token, navigate]);
+
+  // Filtered & Sorted Items
   const filteredItems = items
     .filter((item) => {
       if (searchText && !item.name.toLowerCase().includes(searchText.toLowerCase())) {
@@ -52,10 +55,7 @@ const Search = () => {
       return true;
     })
     .sort((a, b) => {
-      // Sorting logic
-      if (sortOption === "latest") {
-        return new Date(b.date) - new Date(a.date);
-      } else if (sortOption === "price-low-to-high") {
+      if (sortOption === "price-low-to-high") {
         return a.price - b.price;
       } else if (sortOption === "price-high-to-low") {
         return b.price - a.price;
@@ -64,7 +64,7 @@ const Search = () => {
     });
 
   return (
-    <div>
+    <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
       <h1>Search Items</h1>
 
       {/* Search Bar */}
@@ -73,46 +73,48 @@ const Search = () => {
         placeholder="Search for items..."
         value={searchText}
         onChange={(e) => setSearchText(e.target.value)}
-        style={{ margin: "10px", padding: "8px", width: "300px" }}
+        style={{ margin: "10px 0", padding: "8px", width: "100%", maxWidth: "400px" }}
       />
 
       {/* Filters */}
-      <div>
-        <h3>Filter by Condition:</h3>
-        {["New", "Barely Used", "Used Enough"].map((condition) => (
-          <label key={condition} style={{ marginRight: "10px" }}>
-            <input
-              type="checkbox"
-              value={condition}
-              onChange={(e) => {
-                const value = e.target.value;
-                setConditionFilters((prev) =>
-                  prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value]
-                );
-              }}
-            />
-            {condition}
-          </label>
-        ))}
-      </div>
+      <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", margin: "10px 0" }}>
+        <div>
+          <h3>Condition:</h3>
+          {["New", "Barely Used", "Used Enough"].map((condition) => (
+            <label key={condition} style={{ marginRight: "10px" }}>
+              <input
+                type="checkbox"
+                value={condition}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setConditionFilters((prev) =>
+                    prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value]
+                  );
+                }}
+              />
+              {condition}
+            </label>
+          ))}
+        </div>
 
-      <div>
-        <h3>Filter by Category:</h3>
-        {["Electronics", "Furniture", "Books"].map((category) => (
-          <label key={category} style={{ marginRight: "10px" }}>
-            <input
-              type="checkbox"
-              value={category}
-              onChange={(e) => {
-                const value = e.target.value;
-                setCategoryFilters((prev) =>
-                  prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value]
-                );
-              }}
-            />
-            {category}
-          </label>
-        ))}
+        <div>
+          <h3>Category:</h3>
+          {["Electronics", "Furniture", "Books"].map((category) => (
+            <label key={category} style={{ marginRight: "10px" }}>
+              <input
+                type="checkbox"
+                value={category}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setCategoryFilters((prev) =>
+                    prev.includes(value) ? prev.filter((c) => c !== value) : [...prev, value]
+                  );
+                }}
+              />
+              {category}
+            </label>
+          ))}
+        </div>
       </div>
 
       {/* Sort Options */}
@@ -129,40 +131,59 @@ const Search = () => {
         </select>
       </div>
 
-    <div style={{ marginTop: "20px" }}>
-        {filteredItems.length > 0 ? (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", 
-        gap: "20px", // Space between grid items
-        justifyItems: "center", // Center items in each grid cell
-      }}
-    >
-      {filteredItems.map((item) => (
-        <div
-          key={item.id}
-          style={{
-            border: "1px solid #ccc",
-            padding: "10px",
-            width: "100%", // Ensures that each item takes full width of its grid cell
-            boxSizing: "border-box",
-          }}
-        >
-          <h3>{item.name}</h3>
-          <p>Price: ₹{item.price}</p>
-          <p>Condition: {item.condition}</p>
-          <p>Category: {item.category}</p>
-          <p>Vendor: {item.vendor}</p>
-          <button onClick={() => navigate(`/items/${item.itemId}`)}>View Item</button>
-        </div>
-      ))}
-    </div>
-  ) : (
-    <p>No items found.</p>
-  )}
-</div>
-
+      {/* Items Display */}
+      <div style={{ marginTop: "20px" }}>
+        {loading ? (
+          <p>Loading items...</p>
+        ) : error ? (
+          <p style={{ color: "red" }}>{error}</p>
+        ) : filteredItems.length > 0 ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
+              gap: "20px",
+              justifyItems: "center",
+            }}
+          >
+            {filteredItems.map((item) => (
+              <div
+                key={item.itemId} // Using itemId instead of _id
+                style={{
+                  border: "1px solid #ccc",
+                  padding: "10px",
+                  borderRadius: "10px",
+                  boxShadow: "2px 2px 10px rgba(0,0,0,0.1)",
+                  width: "100%",
+                  maxWidth: "300px",
+                  textAlign: "center",
+                }}
+              >
+                <h3>{item.name}</h3>
+                <p>Price: ₹{item.price}</p>
+                <p>Condition: {item.condition}</p>
+                <p>Category: {item.category}</p>
+                <button
+                  onClick={() => navigate(`/items/${item.itemId}`)} // Navigate using itemId
+                  style={{
+                    marginTop: "10px",
+                    padding: "8px",
+                    backgroundColor: "#007bff",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                  }}
+                >
+                  View Item
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p>No items found.</p>
+        )}
+      </div>
     </div>
   );
 };

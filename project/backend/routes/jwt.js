@@ -30,7 +30,7 @@ const verifyToken = (req, res, next) => {
     }
 };
 
-
+//not using rn
 const isTokenValid = () => {
     if (typeof window === 'undefined') {
         console.error('localStorage is not available on the server');

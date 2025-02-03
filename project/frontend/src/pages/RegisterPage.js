@@ -1,4 +1,4 @@
-import React, { useState,useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 // import ReCAPTCHA from 'react-google-recaptcha';
@@ -13,6 +13,13 @@ const RegisterPage = () => {
     age: '',
     contactNumber: '',
   });
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate('/profile');
+    }
+  }, [navigate]);
   
   // const [recaptchaToken, setRecaptchaToken] = useState("");
   // const captcharef = useRef();

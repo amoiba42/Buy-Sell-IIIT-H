@@ -1,17 +1,23 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef,useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import ReCAPTCHA from 'react-google-recaptcha';
 
 const LoginPage = () => {
+  const navigate = useNavigate(); // React Router v6 navigation hook
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const navigate = useNavigate();
-
   const [recaptchaToken, setRecaptchaToken] = useState('');
   const captcharef = useRef(); // Create a ref for the ReCAPTCHA
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate('/profile');
+    }
+  }, [navigate]);
 
   // Handle reCAPTCHA response
   const handleRecaptchaChange = (value) => {
@@ -39,6 +45,8 @@ const LoginPage = () => {
 
         // Store token in localStorage
         localStorage.setItem('token', token);
+        console.log('set token on login');
+        console.log('Token:', token);
         setSuccess(message);
 
         // Redirect to the dashboard

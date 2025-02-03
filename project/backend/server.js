@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import User from './models/User.js'; // Ensure this file exists with the User schema
 import Item from './models/Item.js'; // Ensure this file exists with the Item schema
+import Order from './models/Orders.js'; // Ensure this file exists with the Order schema
 import protect from './middleware/protect.js'; // Ensure middleware exists
 import authRoutes from './routes/authRoutes.js'; // Ensure this file exists
 import { verifyToken } from './routes/jwt.js'; // Use named import
@@ -107,6 +108,7 @@ app.delete('/api/user/profile', protect, async (req, res) => {
 });
 
 
+//-------------------------------------------------
 
 // 7. Chatbot API
 app.post('/api/chat', async (req, res) => {
@@ -143,29 +145,156 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+//-------------------------------------------------
+
 // 8. Add a new item
 app.post("/api/items", verifyToken, async (req, res) => {
   try {
-    const newItem = new Item({
+    console.log("Received request to add an item");
+    console.log("Authenticated user:", req.user);
+
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized: No user found" });
+    }
+    
+const seller_Id= new mongoose.Types.ObjectId('6793856d3354c016f71927ea'); //for name3
+const newItem = new Item({
       ...req.body,
-      sellerId: req.user.id, // Ensure only the logged-in user is attached
+      sellerId: seller_Id, // Ensure item is linked to the logged-in user
     });
 
     await newItem.save();
+
     res.status(201).json(newItem);
   } catch (error) {
-    res.status(500).json({ message: "Error adding item", error });
+    console.error("Error adding item:", error);
+    res.status(500).json({ message: "Error adding item", error: error.message });
   }
 });
 
-// Fetch all items for a specific user
-app.get('/api/items', async (req, res) => {
+
+// 9. Fetch all items for a specific user
+app.get('/api/items', protect, async (req, res) => {
   try {
-    const { sellerId } = req.query;
-    const items = await Item.find({ sellerId });
+    console.log("Received request for items");
+    console.log("Authenticated user:", req.user);
+    const user_id=await User.findById(req.user);
+
+    const items = await Item.find({ sellerId: user_id }); // Use authenticated user's ID
+    console.log("Fetched items:", items);
+
     res.json(items);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching items", error });
+    res.status(500).json({ message: "Error fetching items", error: error.stack });
+  }
+});
+
+
+// 10. Fetch all items
+app.get('/api/all-items', protect, async (req, res) => {
+  try {
+    console.log("Received request to fetch all items");
+
+    const items = await Item.find(); // Fetch all items
+    console.log("Fetched all items:", items);
+
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching all items", error: error.stack });
+  }
+});
+
+// 11. Fetch a single item by ID
+// app.get('/api/items/:id',protect, async (req, res) => {
+//   try {
+//     console.log(`Received request to fetch item with ID: ${req.params.id}`);
+//     const item = await Item.findById(req.params.id);
+//     if (!item) {
+//       return res.status(404).json({ message: 'Item not found' });
+//     }
+//     res.status(200).json(item);
+//   } catch (error) {
+//     console.error('Error fetching item:', error);
+//     res.status(500).json({ message: 'Server error' });
+//   }
+// });
+app.get('/api/items/:id', protect, async (req, res) => {
+  const { id } = req.params;
+  console.log("Received request to fetch item with ID:", id);
+  try {
+    // Query by itemId (not _id)
+    const item = await Item.findOne({ itemId: id });
+
+    if (!item) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+    res.json(item);
+  } catch (error) {
+    console.error("Error fetching item:", error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+//-------------------------------------------------
+
+// API endpoint for creating an order
+app.post('/api/order',protect, async (req, res) => {
+  try {
+    const { buyerId, sellerId, amount, hashedotp } = req.body;  // Assuming OTP is passed hashed from frontend
+    console.log("Creating order for buyer:", buyerId, "and seller:", sellerId);
+
+    // Check if the buyer is trying to buy their own item
+    if (buyerId === sellerId) {
+      return res.status(400).json({ error: 'You cannot buy an item listed by you' });
+    }
+
+    // Create the new order
+    const newOrder = new Order({
+      buyerId: buyerId,
+      sellerId: sellerId,
+      amount: amount,
+      hashedotp: hashedotp, // Store the hashed OTP sent from frontend
+    });
+
+    const savedOrder = await newOrder.save();
+    
+    // Respond with success and the order details
+    res.status(201).json({ message: 'Order created successfully', order: savedOrder });
+    
+  } catch (err) {
+    console.error("Error creating order:", err);
+    res.status(500).json({ error: 'Error creating order', details: err.message });
+  }
+});
+
+// Add item to user's cart
+app.post('/api/user/cart', async (req, res) => {
+  try {
+    const { itemId } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (user.itemsInCart.includes(itemId)) {
+      return res.status(400).json({ error: 'Item already in cart' });
+    }
+
+    user.itemsInCart.push(itemId);
+    await user.save();
+    res.status(200).json(user);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to add item to cart' });
+  }
+});
+
+// Fetch everything from user's cart
+// Get user's cart items
+app.get('/api/user/cart', async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate('itemsInCart');
+    res.status(200).json(user);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to retrieve cart items' });
   }
 });
 

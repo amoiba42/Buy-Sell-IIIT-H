@@ -1,0 +1,116 @@
+/* Basic styling */
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.form-wrapper {
+  background-color: #f9f9f9;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.form-title,
+.form-subtitle {
+  text-align: center;
+  font-family: Arial, sans-serif;
+}
+
+.item-list {
+  list-style-type: none;
+  padding: 0;
+}
+
+.item-card {
+  background-color: #fff;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin: 10px 0;
+  transition: transform 0.3s;
+}
+
+.item-card:hover {
+  transform: scale(1.05);
+}
+
+.all-items .item-card {
+  background-color: #f0f0f0;
+}
+
+.deliverables .item-card {
+  border: 2px solid #ff4500;
+  background-color: #fff4e6;
+  box-shadow: 0 0 10px rgba(52, 119, 37, 0.5);
+}
+
+/* Blinking outline for deliverables */
+.deliverable-item {
+  animation: blinkingOutline 1s infinite;
+}
+
+@keyframes blinkingOutline {
+  0% {
+    border-color: transparent;
+  }
+  50% {
+    border-color: green;
+  }
+  100% {
+    border-color: transparent;
+  }
+}
+
+/* Form styling */
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  margin-bottom: 5px;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  width: 100%;
+}
+
+.btn {
+  background-color: #4caf50;
+  color: white;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.form-wrapper {
+    margin-top: 20px;
+  }
+  
+  .toggle-form-btn {
+    margin: 20px 0;
+  }
+
+  .no-items-message {
+    color: #888;
+    font-style: italic;
+    text-align: center;
+    margin-top: 10px;
+  }
+  
+
+  
+  .btn:hover {
+    background-color: #45a049;
+  }

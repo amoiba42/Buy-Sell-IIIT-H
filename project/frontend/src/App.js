@@ -20,13 +20,13 @@ const App = () => {
       <Routes>
         <Route path="/" exact element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/profile" exact element={<Profile />} />     
         <Route path="/dashboard" exact element={<Dashboard />} />
-        <Route path="/profile" exact element={<Profile token={localStorage.getItem('token')} />} />
-        <Route path="/search-items" exact element={<Search />} /> 
+        <Route path="/search-items" exact element={<Search />} />
+        <Route path="/items/:id" element={<ItemPage />} />
         <Route path="/orders" exact element={<Orders />} />
-        <Route path="/deliver-items" exact element={<DeliverItems />} />
+        <Route path="/deliver-items" exact element={<DeliverItems/>} />
         <Route path="/my-cart" exact element={<MyCart />} />
-        {/* <Route path="/my-cart" element={MyCart} /> */}
         <Route path="/support" exact element={<Support />} />
         <Route path="/items/:itemId" exact element={<ItemPage />} />
       </Routes>

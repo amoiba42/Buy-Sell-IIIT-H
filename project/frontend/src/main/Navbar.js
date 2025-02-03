@@ -1,13 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
-// import './Navbar.css'; 
 
 const Navbar = () => {
   const navigate = useNavigate(); // React Router v6 navigation hook
   
   const handleLogout = () => {
     localStorage.removeItem('token'); // Remove the token from localStorage
+    localStorage.setItem('token', ''); // Set an empty token in localStorage
     localStorage.clear(); // Clear all items in localStorage
 
     document.cookie = 'rc::a=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;';

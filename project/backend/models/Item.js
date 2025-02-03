@@ -14,7 +14,9 @@ const itemSchema = new mongoose.Schema({
   condition: { type: String, required: true },
   category: { type: String, required: true },
   sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
-  quantity: { type: Number, default: 1 },
+  buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'user' ,default: null},
+  // quantity: { type: Number, default: 1 },
+  isDeliverable: { type: Boolean, default: true},
 }, { timestamps: true });
 
 itemSchema.pre('save', function (next) {
@@ -23,7 +25,5 @@ itemSchema.pre('save', function (next) {
   }
   next();
 });
-
-// const Item = mongoose.model('Item', itemSchema);
 
 export default mongoose.model('Item', itemSchema);
