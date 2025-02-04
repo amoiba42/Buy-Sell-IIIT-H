@@ -10,8 +10,8 @@ import crypto from 'crypto'; // To generate unique transaction IDs
 // };
 
 const orderSchema = new mongoose.Schema({
-    buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
-    sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
+    buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     nameofitem: { type: String, required: true ,default:'placeholder'},
     amount: { type: Number, required: true },
     hashedotp: { type: String, required: true },

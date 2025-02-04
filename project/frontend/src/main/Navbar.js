@@ -1,82 +1,81 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import React from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faHome,
+  faSignInAlt,
+  faSearch,
+  faShoppingCart,
+  faBoxOpen,
+  faUser,
+  faHeadset,
+  faSignOutAlt,
+  faList
+} from "@fortawesome/free-solid-svg-icons";
+import "../styles/Navbar.css"; // Import the CSS file
 
 const Navbar = () => {
-  const navigate = useNavigate(); // React Router v6 navigation hook
-  
+  const navigate = useNavigate();
+
   const handleLogout = () => {
-    localStorage.removeItem('token'); // Remove the token from localStorage
-    localStorage.setItem('token', ''); // Set an empty token in localStorage
-    localStorage.clear(); // Clear all items in localStorage
-
-    document.cookie = 'rc::a=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;';
-    document.cookie = 'rc::f=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;';
-    document.cookie = 'mapslitepromosdismissed=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;';
-
-     // Clear all cookies
-    const cookies = document.cookie.split(";");
-
-    cookies.forEach(cookie => {
-      const cookieName = cookie.split("=")[0].trim();
-      document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`; // Clear cookie by setting an expired date
+    localStorage.clear();
+    document.cookie.split(";").forEach((cookie) => {
+      document.cookie = `${cookie.split("=")[0].trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`;
     });
-    navigate('/login'); // Redirect to login page
+    navigate("/login");
   };
+
   return (
     <nav className="navbar">
       <ul className="navbar-links">
         <li>
-          <NavLink to="/"  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
-            RegisterPage
+          <NavLink to="/" className="nav-link">
+            <FontAwesomeIcon icon={faHome} /> <span>Home</span>
           </NavLink>
         </li>
         <li>
-          <NavLink to="/login"  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
-          LoginPage
+          <NavLink to="/login" className="nav-link">
+            <FontAwesomeIcon icon={faSignInAlt} /> <span>Login</span>
           </NavLink>
         </li>
         <li>
-          <NavLink to="/search-items"  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
-            Search Items
+          <NavLink to="/search-items" className="nav-link">
+            <FontAwesomeIcon icon={faSearch} /> <span>Search</span>
           </NavLink>
         </li>
         <li>
-          <NavLink to="/orders"  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
-            Your Orders
+          <NavLink to="/orders" className="nav-link">
+            <FontAwesomeIcon icon={faList} /> <span>Orders</span>
           </NavLink>
         </li>
         <li>
-          <NavLink to="/my-cart"  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
-            My Cart
+          <NavLink to="/my-cart" className="nav-link">
+            <FontAwesomeIcon icon={faShoppingCart} /> <span>Cart</span>
           </NavLink>
         </li>
         <li>
-          <NavLink to="/deliver-items"  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
-            Deliver Items
+          <NavLink to="/deliver-items" className="nav-link">
+            <FontAwesomeIcon icon={faBoxOpen} /> <span>Deliver</span>
           </NavLink>
         </li>
         <li>
-        <NavLink to="/all-items"  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
-            All Items
-          </NavLink>
-
-        </li>
-        <li>
-          <NavLink to="/profile"  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
-            Your Profile
+          <NavLink to="/all-items" className="nav-link">
+            <FontAwesomeIcon icon={faList} /> <span>All Items</span>
           </NavLink>
         </li>
         <li>
-          <NavLink to="/support"  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
-            Support
+          <NavLink to="/profile" className="nav-link">
+            <FontAwesomeIcon icon={faUser} /> <span>Profile</span>
           </NavLink>
         </li>
-
         <li>
-          {/* Logout Button */}
+          <NavLink to="/support" className="nav-link">
+            <FontAwesomeIcon icon={faHeadset} /> <span>Support</span>
+          </NavLink>
+        </li>
+        <li>
           <button className="nav-link logout-button" onClick={handleLogout}>
-            Logout
+            <FontAwesomeIcon icon={faSignOutAlt} /> <span>Logout</span>
           </button>
         </li>
       </ul>

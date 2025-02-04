@@ -47,7 +47,7 @@ const Support = () => {
     <div className="chat-container">
       <div className="chat-box">
         {messages.map((message, index) => (
-          <div key={index} className={`message ${message.role==='user'?'user':'assistant'}`}>
+          <div key={index} className={`message ${message.sender === 'user' ? 'user' : 'bot'}`}>
             <p>{message.text}</p>
           </div>
         ))}
@@ -68,6 +68,6 @@ const Support = () => {
       </div>
     </div>
   );
-};  
+};
 
 export default Support;

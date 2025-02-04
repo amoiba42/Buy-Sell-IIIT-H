@@ -58,46 +58,26 @@ const AllItems = () => {
   };
 
   // Separate items into two lists
-  const allItems = items.filter(item => !item.isDeliverable);
-  const deliverables = items.filter(item => item.isDeliverable && !item.buyerId);
+  const allItems = items;
   
   return (
     <div className="container">
       <div className="form-wrapper">
-        <h1 className="form-title">My Items</h1>
+        {/* <h1 className="form-title">My Items</h1> */}
 
         {/* All Items for Sale List */}
-        <h2 className="form-subtitle">Previously sold items</h2>
+        <h2 className="form-subtitle">All Items</h2>
         {allItems.length === 0 ? (
           <p className="no-items-message">No items to display here</p>
         ) : (
           <ul className="item-list all-items">
             {allItems.map((item) => (
               <li key={item._id} className="item-card light-item">
-                <strong>{item.name}</strong> - ${item.price}
+                <strong>{item.name}</strong> - ₹{item.price}
                 <p>{item.description}</p>
                 <p>Condition: {item.condition}</p>
                 <p>Category: {item.category}</p>
-                {/* <p>BuyerId:{item.buyerId}</p> */}
 
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* Deliverables List */}
-        <h2 className="form-subtitle">Pending</h2>
-        {deliverables.length === 0 ? (
-          <p className="no-items-message">No items to display here</p>
-        ) : (
-          <ul className="item-list deliverables">
-            {deliverables.map((item) => (
-              <li key={item._id} className="item-card deliverable-item">
-                <strong>{item.name}</strong> - ${item.price}
-                <p>{item.description}</p>
-                <p>Condition: {item.condition}</p>
-                <p>Category: {item.category}</p>
-                {/* <p>BuyerId:{item.buyerId}</p> */}
               </li>
             ))}
           </ul>

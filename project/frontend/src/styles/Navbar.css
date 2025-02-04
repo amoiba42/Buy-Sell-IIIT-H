@@ -1,0 +1,71 @@
+/* Ensure the main content is not hidden */
+.content {
+    margin-left: 60px;  /* Adjust based on the navbar width */
+    padding: 20px;  /* Add padding for better readability */
+    transition: margin-left 0.3s ease-in-out; /* Smooth transition */
+  }
+  
+  /* Fix navbar position */
+  .navbar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 220px;
+    height: 100vh;
+    background: #222;
+    padding-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+  }
+  /* List styling */
+  .navbar-links {
+    list-style: none;
+    padding: 0;
+    width: 100%;
+  }
+  
+  /* Link styling */
+  .nav-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: #ddd;
+    padding: 12px 15px;
+    transition: 0.3s;
+    font-size: 16px;
+  }
+  
+  .nav-link span {
+    margin-left: 10px;
+  }
+  
+  /* Hover and Active states */
+  .nav-link:hover,
+  .nav-link.active {
+    background: #444;
+    color: #fff;
+  }
+  
+  /* Logout button styling */
+  .logout-button {
+    width: 100%;
+    border: none;
+    background: #ff4d4d;
+    color: white;
+    font-size: 16px;
+    padding: 12px;
+    cursor: pointer;
+    text-align: left;
+  }
+  
+  .logout-button:hover {
+    background: #e60000;
+  }
+  
+  /* Content should shift right to avoid being hidden */
+  body {
+    margin-left: 220px;
+  }
+  

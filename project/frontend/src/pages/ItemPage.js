@@ -13,6 +13,7 @@ const ItemPage = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const token = localStorage.getItem('token');
 
+  // Fetch user info from token
   const fetchUserFromToken = async () => {
     try {
       const response = await axios.get('http://localhost:5001/api/user/profile', {
@@ -25,6 +26,7 @@ const ItemPage = () => {
     }
   };
 
+  // Fetch item details
   useEffect(() => {
     console.log("Fetching item details...");
     const fetchItem = async () => {
@@ -35,7 +37,7 @@ const ItemPage = () => {
 
         const updatedItem = { 
           ...response.data, 
-          available: response.data.isDeliverable ? "Yes" : "No",
+          // available: response.data.isDeliverable ? "Yes" : "No",
         };
         setItem(updatedItem);
       } catch (err) {
@@ -49,57 +51,70 @@ const ItemPage = () => {
     fetchItem();
   }, [id]);
 
+  // Check if the item is already in the cart
+  useEffect(() => {
+    const checkCartStatus = async () => {
+      if (!token || !item) return;
+
+      try {
+        const user = await fetchUserFromToken();
+        if (!user) return;
+
+        const response = await axios.get(`http://localhost:5001/api/user/cart/${user._id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const cartItems = response.data.cart || [];
+        setIsInCart(cartItems.some(cartItem => cartItem.itemId === item._id));
+      } catch (err) {
+        console.error("Error checking cart status:", err);
+      }
+    };
+
+    checkCartStatus();
+  }, [item]);
+
+  // Handle Add to Cart
   const toggleCartStatus = async () => {
     if (!item) return;
-
+  
     const user = await fetchUserFromToken();
-    console.log('here', user._id);
     if (!user) {
       alert("Please log in to add items to your cart.");
+      navigate('/login');
       return;
     }
-
+  
     if (user.id === item.sellerId) {
       alert("You cannot buy an item listed by you.");
       return;
     }
-
+  
     if (item.available === "No") {
       alert("Item is not available for purchase.");
       return;
     }
-
+  
     try {
-      if (isInCart) {
-        // Remove item from cart
-        const response = await axios.delete(`http://localhost:5001/api/user/cart/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-          data: { userId: user._id },
-        });
-
-        if (response.status === 200) {
-          setIsInCart(false);
-          setSuccessMessage("Item removed from cart successfully!");
-        }
-      } else {
-        // Add item to cart
-        const response = await axios.post(
-          'http://localhost:5001/api/user/cart',
-          { itemId: id, userId: user._id },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        if (response.status === 200) {
-          setIsInCart(true);
-          setSuccessMessage("Item added to cart successfully!");
-        }
-      }
+      const response = await axios.post(
+        'http://localhost:5001/api/user/cart',
+        { itemId: item._id, userId: user._id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+  
+      setSuccessMessage("Item added to cart successfully!");
+      setIsInCart(true);
     } catch (err) {
-      console.error("Error updating cart:", err);
-      setError("Failed to update cart.");
+      if (err.response?.status === 400 && err.response?.data?.error === "Item already in cart") {
+        alert("Item is already in your cart.");
+        setIsInCart(true);
+      } else {
+        console.error("Error updating cart:", err);
+        setError("Failed to update cart.");
+      }
     }
   };
-
+  
   if (loading) return <p>Loading item details...</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
   if (!item) return <p>Item not found.</p>;
@@ -119,7 +134,7 @@ const ItemPage = () => {
         <p>Available: {item.available}</p>
         
         <button onClick={toggleCartStatus} className="cart-btn">
-          {isInCart ? "Remove from Cart" : "Add to Cart"}
+          {isInCart ? "Added to Cart" : "Add to Cart"}
         </button>
 
         {successMessage && <p style={{ color: "green" }}>{successMessage}</p>}

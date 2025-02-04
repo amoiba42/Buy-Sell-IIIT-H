@@ -13,9 +13,9 @@ const itemSchema = new mongoose.Schema({
   description: { type: String },
   condition: { type: String, required: true },
   category: { type: String, required: true },
-  sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
-  buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'user' ,default: null},
-  isDeliverable: { type: Boolean, default: true},
+  sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' ,default: null},
+  // isDeliverable: { type: Boolean, default: true},
 }, { timestamps: true });
 
 itemSchema.pre('save', function (next) {

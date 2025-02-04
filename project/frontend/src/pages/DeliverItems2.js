@@ -34,24 +34,29 @@ const DeliverItems = () => {
   // Fetch user's orders from the backend
   useEffect(() => {
     const fetchOrders = async () => {
-    const user = await fetchUserFromToken();  // Assuming this function returns the user object with _id
-
-    if(user) {
-      try {
-        const response = await axios.get("http://localhost:5001/api/orders/", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setOrders(response.data);
-      } catch (error) {
-        console.error("Error fetching orders:", error);
-      }
-    }
-    else {
+      const user = await fetchUserFromToken();  // Assuming this function returns the user object with _id
+  
+      if (user) {
+        try {
+          console.log("Fetching orders...");
+          const response = await axios.get("http://localhost:5001/api/orders/", {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { sellerId: user._id, closed: false }, // Fetch pending orders where seller is the user and order is not closed
+          });
+  
+          console.log('API call successful');
+          setOrders(response.data);
+        } catch (error) {
+          console.error("Error fetching orders:", error);
+        }
+      } else {
         setError('Failed to fetch user data.');
       }
     };
+  
     fetchOrders();
-  }, [token]);
+  }, [token]);  // The token is passed in as a dependency
+  
 
   // Handle form submission to add a new item
   const handleAddItem = async (e) => {
@@ -75,53 +80,62 @@ const DeliverItems = () => {
     }
   };
 
-  // Handle OTP input and submission
-//   const handleCloseTransaction = async () => {
-//     if (!otp || !selectedOrder) return;
-//     try {
-//       await axios.post(
-//         `http://localhost:5001/api/orders/${selectedOrder._id}/close`,
-//         { otp },
-//         { headers: { Authorization: `Bearer ${token}` } }
-//       );
 
-//       // Update UI: Mark order as closed
-//       setOrders(orders.map((order) =>
-//         order._id === selectedOrder._id ? { ...order, closed: true } : order
-//       ));
-
-//       setIsOtpModalOpen(false);
-//       setOtp("");
-//       setSelectedOrder(null);
-//     } catch (error) {
-//       console.error("Error closing transaction:", error);
-//     }
-//   };
-const handleCloseTransaction = async () => {
+  const handleCloseTransaction = async () => {
     if (!otp || !selectedOrder) return;
+  
     try {
-      await axios.put(
+      const response = await axios.put(
         `http://localhost:5001/api/orders/${selectedOrder._id}/close`,
         { otp },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      // Update UI: Mark order as closed
+  
+      // If the order was successfully closed, update the local state
       setOrders(orders.map((order) =>
         order._id === selectedOrder._id ? { ...order, closed: true } : order
       ));
-
+  
+      // Close the OTP modal and reset the OTP input
       setIsOtpModalOpen(false);
       setOtp("");
       setSelectedOrder(null);
     } catch (error) {
+      // Handle the error if OTP is incorrect or any other error
+      if (error.response && error.response.status === 400) {
+        alert(error.response.data.message || 'Incorrect OTP');
+      } else {
+        alert('Error closing transaction, please try again');
+      }
       console.error("Error closing transaction:", error);
     }
-};
+  };
+  
 
   // Separate orders: show only pending orders
   const pendingOrders = orders.filter(order => !order.closed);
+  // Handle keydown for OTP Modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter') {
+        // Trigger the confirm button click when Enter key is pressed
+        handleCloseTransaction();
+      } else if (e.key === 'Escape') {
+        // Close the modal when Escape key is pressed
+        setIsOtpModalOpen(false);
+      }
+    };
 
+    if (isOtpModalOpen) {
+      // Add the keydown event listener when the OTP modal is open
+      document.addEventListener('keydown', handleKeyDown);
+
+      // Cleanup event listener on modal close or component unmount
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isOtpModalOpen, otp, selectedOrder]);
   return (
     <div className="container">
       <div className="form-wrapper">
@@ -135,10 +149,9 @@ const handleCloseTransaction = async () => {
           <ul className="item-list deliverables">
             {pendingOrders.map((order) => (
               <li key={order._id} className="item-card deliverable-item">
-                <strong>{order.itemName}</strong> - ${order.amount}
-                <p>Buyer: {order.buyerId}</p>
-                {/* <p>Quantity: {order.quantity}</p> */}
-                <p>Status: {order.closed ? "Closed" : "Pending"}</p>
+                <strong>{order.itemName}</strong> - ₹{order.amount}
+                <p>Buyer: {order.buyerId.firstName} {order.buyerId.lastName}</p>                {/* <p>Quantity: {order.quantity}</p> */}
+                {/* <p>Status: {order.closed ? "Closed" : "Pending"}</p> */}
                 <button
                   className="btn close-btn"
                   onClick={() => {

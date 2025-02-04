@@ -17,6 +17,7 @@ const RegisterPage = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
+      alert('You are already logged in.Redirecting to profile page..');
       navigate('/profile');
     }
   }, [navigate]);

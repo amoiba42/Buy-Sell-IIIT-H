@@ -1,128 +1,265 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import axios from 'axios';
-import bcrypt from 'bcryptjs';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import bcrypt from "bcryptjs";
 
 const MyCart = () => {
-  const [cartItems, setCartItems] = useState([]); // Initialize as an empty array
+  const [cartItems, setCartItems] = useState([]);
   const [error, setError] = useState(null);
-  const [otpMessage, setOtpMessage] = useState('');
-  const token = localStorage.getItem('token');
+  const [otpMessages, setOtpMessages] = useState([]);
+  const [orderedItems, setOrderedItems] = useState({}); // Track placed orders
+  const token = localStorage.getItem("token");
+  const navigate = useNavigate();
 
   const fetchUserFromToken = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/user/profile', {
+      const response = await axios.get("http://localhost:5001/api/user/profile", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return response.data; // Returns user object
+      return response.data;
     } catch (error) {
-      console.error("Error fetching user from token:", error);
-      return null; // Handle authentication failure
+      console.error("Error fetching user:", error);
+      return null;
     }
   };
 
   useEffect(() => {
     const fetchCartItems = async () => {
-      const user = await fetchUserFromToken();  // Assuming this function returns the user object with _id
+      const user = await fetchUserFromToken();
       if (user) {
         try {
-          console.log("Fetching cart items from frontend..");
-
-          // Pass the userId as part of the URL and include the token in headers
           const response = await axios.get(`http://localhost:5001/api/user/cart/${user._id}`, {
-            headers: {
-              Authorization: `Bearer ${token}`,  // Add token to Authorization header
-            },
+            headers: { Authorization: `Bearer ${token}` },
           });
 
           if (response.status === 200) {
-            setCartItems(response.data.itemsInCart || []);  // Default to empty array if itemsInCart is undefined
+            setCartItems(response.data.itemsInCart || []);
           } else {
-            setError('Failed to fetch cart items.');
+            setError("Failed to fetch cart items.");
           }
         } catch (err) {
           console.error("Error fetching cart items:", err);
-          setError('Failed to fetch cart items.');
+          setError("Failed to fetch cart items.");
         }
       } else {
-        setError('Failed to fetch user data.');
+        setError("Failed to fetch user data.");
       }
     };
 
     fetchCartItems();
   }, [token]);
 
-  const generateOtp = () => {
-    const otp = Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
-    return otp.toString();
-  };
+  const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
 
   const hashOtp = async (otp) => {
-    const hashedOtp = await bcrypt.hash(otp, 10);  // Hash OTP with bcrypt
-    return hashedOtp;
+    return await bcrypt.hash(otp, 10);
+  };
+
+  const removeItem = async (itemId) => {
+    try {
+      const user = await fetchUserFromToken();
+      if (!user) {
+        setError("Failed to fetch user data.");
+        return;
+      }
+
+      const response = await axios.delete(`http://localhost:5001/api/user/cart/${itemId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { userId: user._id },
+      });
+
+      if (response.status === 200) {
+        setCartItems((prev) => prev.filter((item) => item._id !== itemId));
+        alert("Item removed from cart successfully.");
+      } else {
+        setError("Failed to remove item from cart.");
+      }
+    } catch (error) {
+      console.error("Error removing item from cart:", error);
+      setError("Failed to remove item from cart.");
+    }
   };
 
   const placeOrder = async (item) => {
     try {
-      const otp = generateOtp(); // Generate OTP
-      const hashedOtp = await hashOtp(otp); // Hash OTP for security
-
-      // Get user data from the token
-      const userResponse = await axios.get('http://localhost:5001/api/user/profile', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const otp = generateOtp();
+      const hashedOtp = await hashOtp(otp);
+  
+      const userResponse = await axios.get("http://localhost:5001/api/user/profile", {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      const user = userResponse.data._id;  // Corrected user data retrieval
-      
-      // Prepare order data
+  
+      const user = userResponse.data._id;
+      const username = userResponse.data.firstName;
+  
       const orderData = {
         buyerId: user,
         sellerId: item.sellerId,
+        nameofitem: item.name,
         amount: item.price,
-        hashedotp: hashedOtp,  // Send hashed OTP to backend
+        hashedotp: hashedOtp,
       };
-
-      // Call API to create an order
-      const response = await axios.post('http://localhost:5001/api/order', orderData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+  
+      const response = await axios.post("http://localhost:5001/api/order", orderData, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      // Check if the response is successful
+  
       if (response.status === 201) {
-        setOtpMessage(`Your One-Time Password (OTP) for this order is: ${otp}. Please inform the seller about this OTP.`);
-        alert('Order placed successfully. Check your OTP.');
+        const { _id } = response.data.order; // Use `_id` from the response
+        // console.log("id is ", _id);
+        setOtpMessages((prev) => [
+          ...prev,
+          `Your OTP for ${item.name} is: ${otp}. Please inform the seller.`,
+        ]);
+  
+        // Store order._id in state instead of item._id
+        setOrderedItems((prev) => ({
+          ...prev,
+          [item._id]: { ordered: true, orderId: _id, otp: otp }, // Use `_id` here
+        }));
+  
+        alert(`Order placed successfully for ${item.name}! Your OTP: ${otp}`);
+        
+        await removeItem(item._id);
       }
     } catch (error) {
       console.error("Error placing order:", error);
-      setError('Failed to place order.');
+      setError("Failed to place order.");
     }
   };
+    
+  const regenerateOtp = async (item) => {
+    try {
+      const newOtp = generateOtp();
+      const hashedOtp = await hashOtp(newOtp);
+  
+      // Retrieve order._id from orderedItems state
+      const orderId = orderedItems[item._id]?.orderId;
+  
+      if (!orderId) {
+        console.error("Error: Order ID not found for item", item._id);
+        setError("Order ID missing. Please try again.");
+        return;
+      }
+  
+      await axios.put(
+        `http://localhost:5001/api/order/${orderId}`, // Use order._id
+        { hashedotp: hashedOtp },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+  
+      setOrderedItems((prev) => ({
+        ...prev,
+        [item._id]: { ordered: true, orderId: orderId, otp: newOtp },
+      }));
+  
+      alert(`New OTP for ${item.name} is: ${newOtp}. Please inform the seller.`);
+    } catch (error) {
+      console.error("Error regenerating OTP:", error);
+      setError("Failed to regenerate OTP.");
+    }
+  };
+  
+
+  const checkoutCart = async () => {
+    for (const item of cartItems) {
+      await placeOrder(item);
+    }
+    setCartItems([]);
+  };
+
+  const totalAmount = cartItems.reduce((acc, item) => acc + item.price, 0);
 
   return (
-    <div>
+    <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
       <h1>My Cart</h1>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      {cartItems.length === 0 && <p>Your cart is empty.</p>}
-      
-      {cartItems.map((item) => (
-        <div key={item.itemId} className="cart-item">
-          <h2>{item.name}</h2>
-          <img src={item.image} alt={item.name} className="item-image" />
-          <p>Price: ₹{item.price}</p>
-          <p>Condition: {item.condition}</p>
-          <p>Category: {item.category}</p>
 
-          <button onClick={() => placeOrder(item)} className="place-order-btn">
-            Place Order
+      {error && <p style={{ color: "red" }}>{error}</p>}
+      {cartItems.length === 0 ? <p>Your cart is empty.</p> : null}
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
+          gap: "20px",
+          justifyItems: "center",
+          marginTop: "20px",
+        }}
+      >
+        {cartItems.map((item) => (
+          <div key={item._id} style={{ border: "1px solid #ccc", padding: "10px", borderRadius: "10px", boxShadow: "2px 2px 10px rgba(0,0,0,0.1)", width: "100%", maxWidth: "300px", textAlign: "center" }}>
+            <h3>{item.name}</h3>
+            {/* <img src={item.image} alt={item.name} style={{ width: "100%", height: "150px", objectFit: "cover", borderRadius: "5px" }} /> */}
+            <p>Price: ₹{item.price}</p>
+            <p>Condition: {item.condition}</p>
+            <p>Category: {item.category}</p>
+            <p>Seller: {item.sellerId ? `${item.sellerId.firstName} ${item.sellerId.lastName}` : "Unknown"}</p>
+
+            {orderedItems[item._id]?.ordered ? (
+              <>
+                <p style={{ color: "green" }}>Order Placed! OTP: {orderedItems[item._id]?.otp}</p>
+                <button
+                  onClick={() => regenerateOtp(item)}
+                  style={{
+                    marginTop: "10px",
+                    padding: "8px",
+                    backgroundColor: "#f0ad4e",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Regenerate OTP
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => placeOrder(item)}
+                  style={{
+                    marginTop: "10px",
+                    padding: "8px",
+                    backgroundColor: "#007bff",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                    marginRight: "5px",
+                  }}
+                >
+                  Place Order
+                </button>
+
+                <button
+                  onClick={() => removeItem(item._id)}
+                  style={{
+                    marginTop: "10px",
+                    padding: "8px",
+                    backgroundColor: "#dc3545",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Remove
+                </button>
+              </>
+            )}
+          </div>
+        ))}
+
+      </div>
+
+      {cartItems.length > 0 && (
+        <div style={{ marginTop: "30px", textAlign: "center" }}>
+          <h2>Total: ₹{totalAmount}</h2>
+          <button onClick={checkoutCart} style={{ padding: "10px 20px", backgroundColor: "#28a745", color: "white", borderRadius: "5px" }}>
+            Checkout Cart
           </button>
         </div>
-      ))}
-
-      {otpMessage && <p className="otp-message">{otpMessage}</p>}
+      )}
     </div>
   );
 };

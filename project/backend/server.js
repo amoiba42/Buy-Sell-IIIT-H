@@ -1,16 +1,17 @@
 import mongoose from 'mongoose';
 import express from 'express';
 import cors from 'cors';
-import User from './models/User.js'; // Ensure this file exists with the User schema
-import Item from './models/Item.js'; // Ensure this file exists with the Item schema
-import Order from './models/Orders.js'; // Ensure this file exists with the Order schema
-import protect from './middleware/protect.js'; // Ensure middleware exists
-import authRoutes from './routes/authRoutes.js'; // Ensure this file exists
-import { verifyToken } from './routes/jwt.js'; // Use named import
+import User from './models/User.js'; 
+import Item from './models/Item.js'; 
+import Order from './models/Orders.js'; 
+import protect from './middleware/protect.js'; 
+import authRoutes from './routes/authRoutes.js';
+import { verifyToken } from './routes/jwt.js'; 
 import dotenv from 'dotenv';
 import axios from 'axios';
 import bodyParser from 'body-parser';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import bcrypt from "bcryptjs";
 
 dotenv.config({ path: './config/.env' });
 
@@ -120,11 +121,8 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
-    // Get previous chat history for the session (if it exists)
     const history = chatSessions[sessionId] || [];
 
-    // Prepare the message payload for the AI model
-    // Include the entire history (user and assistant messages) to maintain context
     const messages = [
       ...history,
       { role: 'user', content: userMessage },
@@ -195,30 +193,38 @@ app.get('/api/items', verifyToken, async (req, res) => {
 app.get('/api/all-items', verifyToken, async (req, res) => {
   try {
     console.log("Received request to fetch all items");
+    
+    // Add more detailed error logging
+    const items = await Item.find()
+      .populate('sellerId', 'firstName lastName')
+      .lean()  // This makes the query faster and uses less memory
+      .catch(err => {
+        console.error("Database query error:", err);
+        throw err;
+      });
 
-    const items = await Item.find(); // Fetch all items
-    console.log("Fetched all items:", items);
+    if (!items) {
+      throw new Error("No items returned from database");
+    }
 
+    console.log("Successfully fetched items count:", items.length);
+    
     res.json(items);
+
   } catch (error) {
-    res.status(500).json({ message: "Error fetching all items", error: error.stack });
+    console.error("Detailed error in /api/all-items:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
+    res.status(500).json({ 
+      message: "Error fetching items",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 });
 
-// 11. Fetch a single item by ID
-// app.get('/api/items/:id',protect, async (req, res) => {
-//   try {
-//     console.log(`Received request to fetch item with ID: ${req.params.id}`);
-//     const item = await Item.findById(req.params.id);
-//     if (!item) {
-//       return res.status(404).json({ message: 'Item not found' });
-//     }
-//     res.status(200).json(item);
-//   } catch (error) {
-//     console.error('Error fetching item:', error);
-//     res.status(500).json({ message: 'Server error' });
-//   }
-// });
 app.get('/api/items/:id', protect, async (req, res) => {
   const { id } = req.params;
   console.log("Received request to fetch item with ID:", id);
@@ -241,7 +247,7 @@ app.get('/api/items/:id', protect, async (req, res) => {
 // API endpoint for creating an order
 app.post('/api/order',protect, async (req, res) => {
   try {
-    const { buyerId, sellerId, amount, hashedotp } = req.body;  // Assuming OTP is passed hashed from frontend
+    const { buyerId, sellerId, amount,nameofitem, hashedotp } = req.body;  // Assuming OTP is passed hashed from frontend
     console.log("Creating order for buyer:", buyerId, "and seller:", sellerId);
 
     // Check if the buyer is trying to buy their own item
@@ -254,12 +260,14 @@ app.post('/api/order',protect, async (req, res) => {
       buyerId: buyerId,
       sellerId: sellerId,
       amount: amount,
+      nameofitem: nameofitem,
       hashedotp: hashedotp, // Store the hashed OTP sent from frontend
     });
 
     const savedOrder = await newOrder.save();
     
     // Respond with success and the order details
+    console.log("order details",savedOrder);
     res.status(201).json({ message: 'Order created successfully', order: savedOrder });
     
   } catch (err) {
@@ -268,20 +276,45 @@ app.post('/api/order',protect, async (req, res) => {
   }
 });
 
-
-app.get("/api/orders/",protect, async (req, res) => {
+app.get("/api/orders", protect, async (req, res) => {
   console.log("Inside orders API");
 
   try {
-    // const { userId } = req.params;
-    const userId = req.user;
-    console.log("User ID:", userId);
+    const userId = req.user; // The user ID comes from the JWT token (req.user)
+    const { buyerId, sellerId, closed } = req.query; // Extracting query parameters
 
-    // Fetch orders where the given userId matches sellerId
-    const orders = await Order.find({ sellerId: req.user });
+    let query = {}; // Start with an empty query object
+
+    // If buyerId is provided, filter orders by buyerId
+    if (buyerId) {
+      query.buyerId = buyerId;
+    }
+
+    // If sellerId is provided, filter orders by sellerId
+    if (sellerId) {
+      query.sellerId = sellerId;
+    }
+
+    // If closed is provided, filter orders by closed status
+    if (closed !== undefined) {
+      query.closed = closed === 'true'; // 'true' will be converted to boolean true
+    }
+    else {
+      query.closed = false; // If closed is not provided, assume false for pending orders
+    }
+
+    // If no buyerId or sellerId is provided, the query defaults to fetching orders based on the logged-in user
+    if (!buyerId && !sellerId) {
+      query.$or = [{ buyerId: userId }, { sellerId: userId }];
+    }
+
+    // Fetch orders based on the constructed query
+    const orders = await Order.find(query)
+      .populate('sellerId', 'firstName lastName')
+      .populate('buyerId', 'firstName lastName');
 
     if (orders.length === 0) {
-      return res.status(404).json({ message: "No orders found for this seller." });
+      return res.status(404).json({ message: "No orders found." });
     }
 
     console.log("Orders fetched successfully");
@@ -292,29 +325,63 @@ app.get("/api/orders/",protect, async (req, res) => {
   }
 });
 
+
 app.put('/api/orders/:id/close', async (req, res) => {
   try {
-    const { otp } = req.body;
+    const { otp } = req.body; // OTP sent from the frontend
     const orderId = req.params.id;
 
-    // Verify OTP and perform any necessary checks
+    // Verify if the order exists
     const order = await Order.findById(orderId);
     if (!order) return res.status(404).send('Order not found');
 
+    // Check if OTP matches the stored hashed OTP
+    const isOtpValid = await bcrypt.compare(otp, order.hashedotp); // Assuming the OTP hash is stored in 'otpHash' field of the order
+
+    if (!isOtpValid) {
+      return res.status(400).json({ message: 'Incorrect OTP' }); // Return an appropriate error if OTP is incorrect
+    }
+    console.log('OTP verified successfully');
     // Proceed to close the order
     order.closed = true;
     await order.save();
 
-    res.status(200).json(order);
+    res.status(200).json(order); // Return the updated order
   } catch (error) {
+    console.error('Error closing order:', error);
     res.status(500).send('Server error');
   }
 });
 
+app.put("/api/order/:orderId", async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { hashedotp } = req.body;
+
+    console.log("Updating OTP for Order ID:", orderId);
+
+    const updatedOrder = await Order.findByIdAndUpdate(
+      orderId,
+      { hashedotp },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ message: "Order not found." });
+    }
+
+    res.status(200).json({ message: "OTP updated successfully." });
+  } catch (error) {
+    console.error("Error updating OTP:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+});
+
+
 
 app.get("/api/orders/completed", protect, async (req, res) => {
   try {
-    const completedOrders = await Order.find({ sellerId: req.user, closed: true });
+    const completedOrders = await Order.find({ sellerId: req.user, closed: true }).populate('buyerId', 'firstName lastName').lean();
     res.status(200).json(completedOrders);
   } catch (err) {
     console.error("Error fetching completed orders:", err);
@@ -324,7 +391,7 @@ app.get("/api/orders/completed", protect, async (req, res) => {
 
 app.get("/api/orders/purchased", protect, async (req, res) => {
   try {
-    const purchasedItems = await Item.find({ buyerId: req.user, isDeliverable: false });
+    const purchasedItems = await Item.find({ buyerId: req.user, isDeliverable: false }).populate('sellerId', 'firstName lastName').lean();
     res.status(200).json(purchasedItems);
   } catch (err) {
     console.error("Error fetching purchased items:", err);
@@ -332,61 +399,26 @@ app.get("/api/orders/purchased", protect, async (req, res) => {
   }
 });
 
-
-
-// Add item to user's cart
-// app.post('/api/user/cart', async (req, res) => {
-//   try {
-//     console.log('Received request to add item to cart');
-//     const { itemId, userId } = req.body;  // Fix destructuring
-//     console.log('User ID:', userId);
-//     const user = await User.findById(userId);
-
-//     if (!user) {
-//       return res.status(404).json({ error: 'User not found' });
-//     }
-//     console.log('fu', itemId);
-//     if (!Array.isArray(user.itemsInCart)) {
-//       user.itemsInCart = [];  // Initialize it as an empty array if undefined
-//     }
-//     if (user.itemsInCart.includes(itemId)) {
-//       return res.status(400).json({ error: 'Item already in cart' });
-//     }
-
-//     user.itemsInCart.push(itemId);
-//     await user.save();
-//     res.status(200).json({ message: 'Item added to cart', user });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: 'Failed to add item to cart' });
-//   }
-// });
-// const mongoose = require('mongoose');
-
 app.post('/api/user/cart', async (req, res) => {
   try {
     console.log('Received request to add item to cart');
     const { itemId, userId } = req.body;
-    console.log('User ID:', userId);
+    console.log('User ID abc:', userId);
+    console.log('itemId abc:', itemId);
 
     // Validate itemId as a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(itemId)) {
       return res.status(400).json({ error: 'Invalid itemId format' });
     }
-
+    console.log('okay');
     // Convert itemId to ObjectId using new mongoose.Types.ObjectId
     const itemObjectId = new mongoose.Types.ObjectId(itemId);
 
     // Fetch the user by their userId
     const user = await User.findById(userId);
-
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-
-    console.log('Item ID:', itemObjectId);
-
-    // Ensure itemsInCart is an array
     if (!Array.isArray(user.itemsInCart)) {
       user.itemsInCart = [];  // Initialize as an empty array if undefined
     }
@@ -398,12 +430,13 @@ app.post('/api/user/cart', async (req, res) => {
 
     // Add the item (as ObjectId) to the cart
     user.itemsInCart.push(itemObjectId);
-
+    console.log('Item added to cart');
     // Save the updated user
     await user.save();
-
+    console.log('User saved');
     res.status(200).json({ message: 'Item added to cart', user });
   } catch (err) {
+    console.log('Error adding item to cart:', err);
     console.error(err);
     res.status(500).json({ error: 'Failed to add item to cart' });
   }
@@ -414,33 +447,27 @@ app.post('/api/user/cart', async (req, res) => {
 app.delete('/api/user/cart/:itemId', async (req, res) => {
   try {
     console.log('Received request to remove item from cart');
-    const { userId } = req.body;  // Extract userId from the request body
-    const { itemId } = req.params;  // Extract itemId from URL parameters
+    const { userId } = req.body; 
+    const { itemId } = req.params;  
 
     console.log('User ID:', userId, 'Item ID:', itemId);
 
-    // Validate itemId as a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(itemId)) {
       return res.status(400).json({ error: 'Invalid itemId format' });
     }
 
-    // Convert itemId to ObjectId
     const itemObjectId = new mongoose.Types.ObjectId(itemId);
-
-    // Fetch the user by their userId
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Find the index of the item in the cart (compare as ObjectId)
     const itemIndex = user.itemsInCart.findIndex(item => item.toString() === itemObjectId.toString());
 
     if (itemIndex === -1) {
       return res.status(400).json({ error: 'Item not in cart' });
     }
 
-    // Remove the item from the cart
     user.itemsInCart.splice(itemIndex, 1);
     await user.save();
 
@@ -451,52 +478,37 @@ app.delete('/api/user/cart/:itemId', async (req, res) => {
   }
 });
 
-// app.delete('/api/user/cart/:itemId', async (req, res) => {
-//   try {
-//     console.log('Received request to remove item from cart');
-//     const { userId } = req.body;  // Extract userId from the request body
-//     const { itemId } = req.params;  // Extract itemId from URL parameters
-
-//     console.log('User ID:', userId, 'Item ID:', itemId);
-
-//     const user = await User.findById(userId);
-//     if (!user) {
-//       return res.status(404).json({ error: 'User not found' });
-//     }
-//     const itemIndex = user.itemsInCart.indexOf(itemId);
-//     if (itemIndex === -1) {
-//       return res.status(400).json({ error: 'Item not in cart' });
-//     }
-//     user.itemsInCart.splice(itemIndex, 1);
-//     await user.save();
-
-//     res.status(200).json({ message: 'Item removed from cart', user });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: 'Failed to remove item from cart' });
-//   }
-// });
-
-
 
 // Fetch everything from user's cart
-// Get user's cart items
 app.get('/api/user/cart/:userId', async (req, res) => {
-  console.log('inside api');
   try {
-    console.log('inside api');
-    const { userId }=req.params;
+    const { userId } = req.params;
     console.log('User ID:', userId);
 
-    const user = await User.findById(userId).populate('itemsInCart');
-    // const user = await User.findById(userId).populate('itemsInCart');
-    console.log('bs');
+    const user = await User.findById(userId)
+      .populate({
+        path: 'itemsInCart', 
+        populate: {
+          path: 'sellerId', 
+          select: 'firstName lastName'
+        }
+      });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Filter items that are deliverable
+    const deliverableItems = user.itemsInCart.filter(item => item.isDeliverable !== false);
+    user.itemsInCart = deliverableItems;
+
     res.status(200).json(user);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to retrieve cart items' });
   }
 });
+
 
 
 app.listen(PORT, async () => {

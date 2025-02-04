@@ -35,18 +35,16 @@
   transform: scale(1.05);
 }
 
-.all-items .item-card {
-  background-color: #f0f0f0;
-}
 
-.deliverables .item-card {
-  border: 2px solid #ff4500;
+
+.all-items .item-card {
+  border: 2px solid #5bd373;
   background-color: #fff4e6;
   box-shadow: 0 0 10px rgba(52, 119, 37, 0.5);
 }
 
 /* Blinking outline for deliverables */
-.deliverable-item {
+.all-items {
   animation: blinkingOutline 1s infinite;
 }
 

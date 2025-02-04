@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import "../styles/Search.css"; // Import the CSS file
 
 const Search = () => {
   const [searchText, setSearchText] = useState("");
@@ -16,18 +17,10 @@ const Search = () => {
 
   useEffect(() => {
     const fetchItems = async () => {
-      if (!token) {
-        navigate("/login");
-        return;
-      }
-
       try {
         const response = await axios.get("http://localhost:5001/api/all-items", {
-          headers: {
-            Authorization: `Bearer ${token}`, // Attach the token in the headers
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
-
         setItems(response.data);
       } catch (error) {
         console.error("Error fetching items:", error);
@@ -40,7 +33,6 @@ const Search = () => {
     fetchItems();
   }, [token, navigate]);
 
-  // Filtered & Sorted Items
   const filteredItems = items
     .filter((item) => {
       if (searchText && !item.name.toLowerCase().includes(searchText.toLowerCase())) {
@@ -55,33 +47,31 @@ const Search = () => {
       return true;
     })
     .sort((a, b) => {
-      if (sortOption === "price-low-to-high") {
-        return a.price - b.price;
-      } else if (sortOption === "price-high-to-low") {
-        return b.price - a.price;
-      }
+      if (sortOption === "price-low-to-high") return a.price - b.price;
+      if (sortOption === "price-high-to-low") return b.price - a.price;
       return 0;
     });
 
   return (
-    <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
-      <h1>Search Items</h1>
+    <div className="search-container">
+      <h1 className="search-header">Search Items</h1>
 
       {/* Search Bar */}
-      <input
-        type="text"
-        placeholder="Search for items..."
-        value={searchText}
-        onChange={(e) => setSearchText(e.target.value)}
-        style={{ margin: "10px 0", padding: "8px", width: "100%", maxWidth: "400px" }}
-      />
+      <div className="search-bar">
+        <input
+          type="text"
+          placeholder="Search for items..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+        />
+      </div>
 
       {/* Filters */}
-      <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", margin: "10px 0" }}>
-        <div>
+      <div className="filters-container">
+        <div className="filter-group">
           <h3>Condition:</h3>
           {["New", "Barely Used", "Used Enough"].map((condition) => (
-            <label key={condition} style={{ marginRight: "10px" }}>
+            <label key={condition}>
               <input
                 type="checkbox"
                 value={condition}
@@ -97,10 +87,10 @@ const Search = () => {
           ))}
         </div>
 
-        <div>
+        <div className="filter-group">
           <h3>Category:</h3>
           {["Electronics", "Furniture", "Books"].map((category) => (
-            <label key={category} style={{ marginRight: "10px" }}>
+            <label key={category}>
               <input
                 type="checkbox"
                 value={category}
@@ -118,13 +108,9 @@ const Search = () => {
       </div>
 
       {/* Sort Options */}
-      <div>
+      <div className="sort-container">
         <h3>Sort By:</h3>
-        <select
-          value={sortOption}
-          onChange={(e) => setSortOption(e.target.value)}
-          style={{ margin: "10px", padding: "8px" }}
-        >
+        <select value={sortOption} onChange={(e) => setSortOption(e.target.value)}>
           <option value="latest">Latest</option>
           <option value="price-low-to-high">Price: Low to High</option>
           <option value="price-high-to-low">Price: High to Low</option>
@@ -132,49 +118,21 @@ const Search = () => {
       </div>
 
       {/* Items Display */}
-      <div style={{ marginTop: "20px" }}>
+      <div>
         {loading ? (
           <p>Loading items...</p>
         ) : error ? (
           <p style={{ color: "red" }}>{error}</p>
         ) : filteredItems.length > 0 ? (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-              gap: "20px",
-              justifyItems: "center",
-            }}
-          >
+          <div className="items-grid">
             {filteredItems.map((item) => (
-              <div
-                key={item.itemId} // Using itemId instead of _id
-                style={{
-                  border: "1px solid #ccc",
-                  padding: "10px",
-                  borderRadius: "10px",
-                  boxShadow: "2px 2px 10px rgba(0,0,0,0.1)",
-                  width: "100%",
-                  maxWidth: "300px",
-                  textAlign: "center",
-                }}
-              >
+              <div key={item.itemId} className="item-card">
                 <h3>{item.name}</h3>
                 <p>Price: ₹{item.price}</p>
                 <p>Condition: {item.condition}</p>
                 <p>Category: {item.category}</p>
-                <button
-                  onClick={() => navigate(`/items/${item.itemId}`)} // Navigate using itemId
-                  style={{
-                    marginTop: "10px",
-                    padding: "8px",
-                    backgroundColor: "#007bff",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                  }}
-                >
+                <p>Seller: {item.sellerId ? `${item.sellerId.firstName} ${item.sellerId.lastName}` : "Unknown"}</p>
+                <button onClick={() => navigate(`/items/${item.itemId}`)} className="view-item-btn">
                   View Item
                 </button>
               </div>
