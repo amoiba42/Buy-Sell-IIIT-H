@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import './Profile.css';
+import '../styles/Profile.css';
 
 const Profile = () => {
   const token = localStorage.getItem("token");
-  console.log('Token in Profile:', token);
   const navigate = useNavigate();
   const [editable, setEditable] = useState(false);
   const [formData, setFormData] = useState(null);
@@ -14,7 +13,6 @@ const Profile = () => {
 
   // Fetch the user profile from the API using the token
   useEffect(() => {
-    console.log('Token:', token); 
     if (!token) {
       navigate('/login'); // Redirect to login if no token
       return;
@@ -80,7 +78,7 @@ const Profile = () => {
     return <p>Error: Profile data is not available.</p>;
   }
 
-  const displayFields = ['firstName', 'lastName', 'email', 'age', 'contactNumber', 'itemsInCart', 'sellerReviews'];
+  const displayFields = ['firstName', 'lastName', 'email', 'age', 'contactNumber', 'sellerReviews']; // Removed 'itemsInCart'
 
   return (
     <div className="profile-box">
@@ -94,7 +92,7 @@ const Profile = () => {
         {displayFields.map((key) => (
           <div key={key} className="profile-field">
             <label>{key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}:</label>
-            {editable && key !== 'itemsInCart' && key !== 'sellerReviews' ? (
+            {editable && key !== 'sellerReviews' ? ( // Removed condition for 'itemsInCart'
               <input
                 type={key === 'age' || key === 'contactNumber' ? 'text' : 'text'}
                 name={key}

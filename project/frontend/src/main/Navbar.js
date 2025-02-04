@@ -57,6 +57,12 @@ const Navbar = () => {
           </NavLink>
         </li>
         <li>
+        <NavLink to="/all-items"  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+            All Items
+          </NavLink>
+
+        </li>
+        <li>
           <NavLink to="/profile"  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
             Your Profile
           </NavLink>
@@ -66,6 +72,7 @@ const Navbar = () => {
             Support
           </NavLink>
         </li>
+
         <li>
           {/* Logout Button */}
           <button className="nav-link logout-button" onClick={handleLogout}>

@@ -9,21 +9,7 @@ const router = express.Router();
 const SECRET = process.env.JWT_SECRET || 'defaultSecret';
 const RECAPTCHA_SECRET_KEY = process.env.RECAPTCHA_SECRET_KEY || 'your-recaptcha-secret-key';
 
-// Function to verify reCAPTCHA token
-const verifyRecaptcha = async (recaptchaToken) => {
-    try {
-        const response = await axios.post(`https://www.google.com/recaptcha/api/siteverify`, null, {
-            params: {
-                secret: RECAPTCHA_SECRET_KEY,
-                response: recaptchaToken,
-            },
-        });
-        return response.data.success;
-    } catch (error) {
-        console.error('reCAPTCHA verification error:', error.message);
-        return false;
-    }
-};
+
 
 // Register route
 router.post('/register', async (req, res) => {
@@ -43,7 +29,8 @@ router.post('/register', async (req, res) => {
         // }
 
         // Hash the password
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password,salt );
 
         // Create and save the user
         const user = new User({ firstName, lastName, email, password: hashedPassword, age, contactNumber });
@@ -59,7 +46,7 @@ router.post('/register', async (req, res) => {
 // Login route
 router.post('/login', async (req, res) => {
     const { email, password, recaptchaToken } = req.body;
-
+    console.log('mkc');
     try {
         
         // Find user by email
@@ -67,27 +54,53 @@ router.post('/login', async (req, res) => {
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        
+        console.log('mkc1');
+        const salt = await bcrypt.genSalt(10);
+        let newp = await bcrypt.hash(password, salt);
+        // let newp= await bcrypt.hash(password, 10);
         // Check if the password matches
+        console.log('p1', password);
+        console.log('p9',newp);
+        console.log('p2', user.password);
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
+            console.log('p3');
             return res.status(401).json({ message: 'Invalid credentials' });
         }
+        console.log('mkc2');
+
         
         // Verify reCAPTCHA token
         const isCaptchaValid = await verifyRecaptcha(recaptchaToken);
         if (!isCaptchaValid) {
             return res.status(400).json({ message: 'Invalid reCAPTCHA. Please try again.' });
         }
+        console.log('mkc3');
         // Generate a JWT token
         const token = signToken(user);
         console.log('my token', token);
         res.status(200).json({ token, message: 'Login successful' });
     } catch (error) {
+        console.log('mkc4');
         console.error('Error during login:', error.message);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 });
+// Function to verify reCAPTCHA token
+const verifyRecaptcha = async (recaptchaToken) => {
+    try {
+        const response = await axios.post(`https://www.google.com/recaptcha/api/siteverify`, null, {
+            params: {
+                secret: RECAPTCHA_SECRET_KEY,
+                response: recaptchaToken,
+            },
+        });
+        return response.data.success;
+    } catch (error) {
+        console.error('reCAPTCHA verification error:', error.message);
+        return false;
+    }
+};
 
 // Protected route (example)
 router.get('/protect', (req, res) => {

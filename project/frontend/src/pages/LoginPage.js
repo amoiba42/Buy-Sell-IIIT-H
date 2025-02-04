@@ -45,8 +45,6 @@ const LoginPage = () => {
 
         // Store token in localStorage
         localStorage.setItem('token', token);
-        console.log('set token on login');
-        console.log('Token:', token);
         setSuccess(message);
 
         // Redirect to the dashboard

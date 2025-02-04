@@ -156,9 +156,10 @@ app.post("/api/items", verifyToken, async (req, res) => {
     if (!req.user) {
       return res.status(401).json({ message: "Unauthorized: No user found" });
     }
-    
-const seller_Id= new mongoose.Types.ObjectId('6793856d3354c016f71927ea'); //for name3
-const newItem = new Item({
+    console.log("req.user",req.user);
+    const seller_Id= req.user.userId;
+    console.log("seller_Id",seller_Id);
+    const newItem = new Item({
       ...req.body,
       sellerId: seller_Id, // Ensure item is linked to the logged-in user
     });
@@ -174,11 +175,11 @@ const newItem = new Item({
 
 
 // 9. Fetch all items for a specific user
-app.get('/api/items', protect, async (req, res) => {
-  try {
+app.get('/api/items', verifyToken, async (req, res) => {
+  try {    
     console.log("Received request for items");
     console.log("Authenticated user:", req.user);
-    const user_id=await User.findById(req.user);
+    const user_id=await User.findById(req.user.userId);
 
     const items = await Item.find({ sellerId: user_id }); // Use authenticated user's ID
     console.log("Fetched items:", items);
@@ -191,7 +192,7 @@ app.get('/api/items', protect, async (req, res) => {
 
 
 // 10. Fetch all items
-app.get('/api/all-items', protect, async (req, res) => {
+app.get('/api/all-items', verifyToken, async (req, res) => {
   try {
     console.log("Received request to fetch all items");
 
@@ -267,30 +268,229 @@ app.post('/api/order',protect, async (req, res) => {
   }
 });
 
+
+app.get("/api/orders/",protect, async (req, res) => {
+  console.log("Inside orders API");
+
+  try {
+    // const { userId } = req.params;
+    const userId = req.user;
+    console.log("User ID:", userId);
+
+    // Fetch orders where the given userId matches sellerId
+    const orders = await Order.find({ sellerId: req.user });
+
+    if (orders.length === 0) {
+      return res.status(404).json({ message: "No orders found for this seller." });
+    }
+
+    console.log("Orders fetched successfully");
+    res.status(200).json(orders);
+  } catch (err) {
+    console.error("Error fetching orders:", err);
+    res.status(500).json({ error: "Failed to retrieve orders" });
+  }
+});
+
+app.put('/api/orders/:id/close', async (req, res) => {
+  try {
+    const { otp } = req.body;
+    const orderId = req.params.id;
+
+    // Verify OTP and perform any necessary checks
+    const order = await Order.findById(orderId);
+    if (!order) return res.status(404).send('Order not found');
+
+    // Proceed to close the order
+    order.closed = true;
+    await order.save();
+
+    res.status(200).json(order);
+  } catch (error) {
+    res.status(500).send('Server error');
+  }
+});
+
+
+app.get("/api/orders/completed", protect, async (req, res) => {
+  try {
+    const completedOrders = await Order.find({ sellerId: req.user, closed: true });
+    res.status(200).json(completedOrders);
+  } catch (err) {
+    console.error("Error fetching completed orders:", err);
+    res.status(500).json({ error: "Failed to retrieve orders" });
+  }
+});
+
+app.get("/api/orders/purchased", protect, async (req, res) => {
+  try {
+    const purchasedItems = await Item.find({ buyerId: req.user, isDeliverable: false });
+    res.status(200).json(purchasedItems);
+  } catch (err) {
+    console.error("Error fetching purchased items:", err);
+    res.status(500).json({ error: "Failed to retrieve items" });
+  }
+});
+
+
+
 // Add item to user's cart
+// app.post('/api/user/cart', async (req, res) => {
+//   try {
+//     console.log('Received request to add item to cart');
+//     const { itemId, userId } = req.body;  // Fix destructuring
+//     console.log('User ID:', userId);
+//     const user = await User.findById(userId);
+
+//     if (!user) {
+//       return res.status(404).json({ error: 'User not found' });
+//     }
+//     console.log('fu', itemId);
+//     if (!Array.isArray(user.itemsInCart)) {
+//       user.itemsInCart = [];  // Initialize it as an empty array if undefined
+//     }
+//     if (user.itemsInCart.includes(itemId)) {
+//       return res.status(400).json({ error: 'Item already in cart' });
+//     }
+
+//     user.itemsInCart.push(itemId);
+//     await user.save();
+//     res.status(200).json({ message: 'Item added to cart', user });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: 'Failed to add item to cart' });
+//   }
+// });
+// const mongoose = require('mongoose');
+
 app.post('/api/user/cart', async (req, res) => {
   try {
-    const { itemId } = req.body;
-    const user = await User.findById(req.user._id);
+    console.log('Received request to add item to cart');
+    const { itemId, userId } = req.body;
+    console.log('User ID:', userId);
 
-    if (user.itemsInCart.includes(itemId)) {
+    // Validate itemId as a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(itemId)) {
+      return res.status(400).json({ error: 'Invalid itemId format' });
+    }
+
+    // Convert itemId to ObjectId using new mongoose.Types.ObjectId
+    const itemObjectId = new mongoose.Types.ObjectId(itemId);
+
+    // Fetch the user by their userId
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log('Item ID:', itemObjectId);
+
+    // Ensure itemsInCart is an array
+    if (!Array.isArray(user.itemsInCart)) {
+      user.itemsInCart = [];  // Initialize as an empty array if undefined
+    }
+
+    // Check if the item is already in the cart
+    if (user.itemsInCart.some(item => item.toString() === itemObjectId.toString())) {
       return res.status(400).json({ error: 'Item already in cart' });
     }
 
-    user.itemsInCart.push(itemId);
+    // Add the item (as ObjectId) to the cart
+    user.itemsInCart.push(itemObjectId);
+
+    // Save the updated user
     await user.save();
-    res.status(200).json(user);
+
+    res.status(200).json({ message: 'Item added to cart', user });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to add item to cart' });
   }
 });
 
+
+// Remove item from user's cart
+app.delete('/api/user/cart/:itemId', async (req, res) => {
+  try {
+    console.log('Received request to remove item from cart');
+    const { userId } = req.body;  // Extract userId from the request body
+    const { itemId } = req.params;  // Extract itemId from URL parameters
+
+    console.log('User ID:', userId, 'Item ID:', itemId);
+
+    // Validate itemId as a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(itemId)) {
+      return res.status(400).json({ error: 'Invalid itemId format' });
+    }
+
+    // Convert itemId to ObjectId
+    const itemObjectId = new mongoose.Types.ObjectId(itemId);
+
+    // Fetch the user by their userId
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Find the index of the item in the cart (compare as ObjectId)
+    const itemIndex = user.itemsInCart.findIndex(item => item.toString() === itemObjectId.toString());
+
+    if (itemIndex === -1) {
+      return res.status(400).json({ error: 'Item not in cart' });
+    }
+
+    // Remove the item from the cart
+    user.itemsInCart.splice(itemIndex, 1);
+    await user.save();
+
+    res.status(200).json({ message: 'Item removed from cart', user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to remove item from cart' });
+  }
+});
+
+// app.delete('/api/user/cart/:itemId', async (req, res) => {
+//   try {
+//     console.log('Received request to remove item from cart');
+//     const { userId } = req.body;  // Extract userId from the request body
+//     const { itemId } = req.params;  // Extract itemId from URL parameters
+
+//     console.log('User ID:', userId, 'Item ID:', itemId);
+
+//     const user = await User.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({ error: 'User not found' });
+//     }
+//     const itemIndex = user.itemsInCart.indexOf(itemId);
+//     if (itemIndex === -1) {
+//       return res.status(400).json({ error: 'Item not in cart' });
+//     }
+//     user.itemsInCart.splice(itemIndex, 1);
+//     await user.save();
+
+//     res.status(200).json({ message: 'Item removed from cart', user });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: 'Failed to remove item from cart' });
+//   }
+// });
+
+
+
 // Fetch everything from user's cart
 // Get user's cart items
-app.get('/api/user/cart', async (req, res) => {
+app.get('/api/user/cart/:userId', async (req, res) => {
+  console.log('inside api');
   try {
-    const user = await User.findById(req.user._id).populate('itemsInCart');
+    console.log('inside api');
+    const { userId }=req.params;
+    console.log('User ID:', userId);
+
+    const user = await User.findById(userId).populate('itemsInCart');
+    // const user = await User.findById(userId).populate('itemsInCart');
+    console.log('bs');
     res.status(200).json(user);
   } catch (err) {
     console.error(err);

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import "./DeliverItems.css"; // Add custom CSS for styling
+import "../styles/AllItems.css"; // Add custom CSS for styling
 
-const DeliverItems = () => {
+const AllItems = () => {
   const [items, setItems] = useState([]);
   const [newItem, setNewItem] = useState({
     name: "",
@@ -26,6 +26,8 @@ const DeliverItems = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         setItems(response.data);
+        console.log('fetched items');
+        console.log(response.data);
       } catch (error) {
         console.error("Error fetching items:", error);
       }
@@ -57,8 +59,8 @@ const DeliverItems = () => {
 
   // Separate items into two lists
   const allItems = items.filter(item => !item.isDeliverable);
-  const deliverables = items.filter(item => item.isDeliverable);
-
+  const deliverables = items.filter(item => item.isDeliverable && !item.buyerId);
+  
   return (
     <div className="container">
       <div className="form-wrapper">
@@ -76,6 +78,8 @@ const DeliverItems = () => {
                 <p>{item.description}</p>
                 <p>Condition: {item.condition}</p>
                 <p>Category: {item.category}</p>
+                {/* <p>BuyerId:{item.buyerId}</p> */}
+
               </li>
             ))}
           </ul>
@@ -93,6 +97,7 @@ const DeliverItems = () => {
                 <p>{item.description}</p>
                 <p>Condition: {item.condition}</p>
                 <p>Category: {item.category}</p>
+                {/* <p>BuyerId:{item.buyerId}</p> */}
               </li>
             ))}
           </ul>
@@ -170,4 +175,4 @@ const DeliverItems = () => {
   );
 };
 
-export default DeliverItems;
+export default AllItems;

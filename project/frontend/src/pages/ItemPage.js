@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import bcrypt from 'bcryptjs';
-import './ItemPage.css';
+import '../styles/ItemPage.css';
 
 const ItemPage = () => {
   const { id } = useParams();
@@ -11,42 +10,33 @@ const ItemPage = () => {
   const [isInCart, setIsInCart] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [otpMessage, setOtpMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const token = localStorage.getItem('token');
 
   const fetchUserFromToken = async () => {
-    const token = localStorage.getItem('token');
     try {
       const response = await axios.get('http://localhost:5001/api/user/profile', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      return response.data;  // This should return the user object
+      return response.data; // Returns user object
     } catch (error) {
       console.error("Error fetching user from token:", error);
-      return null;  // Handle any errors in fetching user details
+      return null; // Handle authentication failure
     }
   };
-  
 
   useEffect(() => {
-    console.log('inside page');
-    console.log("Item ID:", id);  // Ensure the ID is correct
+    console.log("Fetching item details...");
     const fetchItem = async () => {
       try {
         const response = await axios.get(`http://localhost:5001/api/items/${id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
-        
-        // Assuming `isDeliverable` is a field in the response
+
         const updatedItem = { 
           ...response.data, 
-          available: response.data.isDeliverable ? "Yes" : "No"  // Set availability based on isDeliverable
+          available: response.data.isDeliverable ? "Yes" : "No",
         };
-        
         setItem(updatedItem);
       } catch (err) {
         console.error("Error fetching item:", err);
@@ -55,69 +45,59 @@ const ItemPage = () => {
         setLoading(false);
       }
     };
+
     fetchItem();
-  }, [id]);  // Dependency on `id`
+  }, [id]);
 
   const toggleCartStatus = async () => {
     if (!item) return;
-  
-    // Fetch the user from token
+
     const user = await fetchUserFromToken();
-    console.log('User in itempage is:', user); 
-  
-    // Check if the user is the seller of the item
-    if (user && user._id === item.sellerId) {
-      alert('You cannot buy an item listed by you.');
+    console.log('here', user._id);
+    if (!user) {
+      alert("Please log in to add items to your cart.");
       return;
     }
-  
+
+    if (user.id === item.sellerId) {
+      alert("You cannot buy an item listed by you.");
+      return;
+    }
+
     if (item.available === "No") {
-      alert('Item is not available for purchase');
+      alert("Item is not available for purchase.");
       return;
     }
-  
-    // Proceed with adding the item to the cart and creating the order
+
     try {
-      const otp = generateOtp(); // Generate OTP
-      const hashedOtp = await hashOtp(otp); // Hash OTP for security
-  
-      // Create order data
-      const orderData = {
-        buyerId: user._id,
-        sellerId: item.sellerId,
-        amount: item.price,
-        hashedotp: hashedOtp,  // Send hashed OTP to backend
-      };
-  
-      // Call API to create an order
-      const response = await axios.post('http://localhost:5001/api/order', orderData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-  
-      // Check if the response is successful
-      if (response.status === 201) {
-        setIsInCart(true);
-        setOtpMessage(`Your One-Time Password (OTP) for this order is: ${otp}. Please inform the seller about this OTP.`);
-        alert('Order placed successfully. Check your OTP.');
+      if (isInCart) {
+        // Remove item from cart
+        const response = await axios.delete(`http://localhost:5001/api/user/cart/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          data: { userId: user._id },
+        });
+
+        if (response.status === 200) {
+          setIsInCart(false);
+          setSuccessMessage("Item removed from cart successfully!");
+        }
+      } else {
+        // Add item to cart
+        const response = await axios.post(
+          'http://localhost:5001/api/user/cart',
+          { itemId: id, userId: user._id },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (response.status === 200) {
+          setIsInCart(true);
+          setSuccessMessage("Item added to cart successfully!");
+        }
       }
-  
-    } catch (error) {
-      console.error("Error placing order:", error);
-      setError('Failed to place order.');
+    } catch (err) {
+      console.error("Error updating cart:", err);
+      setError("Failed to update cart.");
     }
-  };
-
-  const hashOtp = async (otp) => {
-    const hashedOtp = await bcrypt.hash(otp, 10);  // Hash OTP with bcrypt
-    return hashedOtp;
-  };
-
-  const generateOtp = () => {
-    // OTP generation logic
-    const otp = Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
-    return otp.toString();
   };
 
   if (loading) return <p>Loading item details...</p>;
@@ -141,8 +121,8 @@ const ItemPage = () => {
         <button onClick={toggleCartStatus} className="cart-btn">
           {isInCart ? "Remove from Cart" : "Add to Cart"}
         </button>
-        
-        {otpMessage && <p className="otp-message">{otpMessage}</p>}
+
+        {successMessage && <p style={{ color: "green" }}>{successMessage}</p>}
       </div>
     </div>
   );

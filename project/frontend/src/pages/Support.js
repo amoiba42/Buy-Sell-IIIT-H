@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import './Support.css';
+import '../styles/Support.css';
 
 const Support = () => {
   const [messages, setMessages] = useState([]);

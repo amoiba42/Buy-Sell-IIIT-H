@@ -15,7 +15,6 @@ const itemSchema = new mongoose.Schema({
   category: { type: String, required: true },
   sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
   buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'user' ,default: null},
-  // quantity: { type: Number, default: 1 },
   isDeliverable: { type: Boolean, default: true},
 }, { timestamps: true });
 
