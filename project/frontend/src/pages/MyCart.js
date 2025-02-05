@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import bcrypt from "bcryptjs";
 
@@ -9,7 +8,6 @@ const MyCart = () => {
   const [otpMessages, setOtpMessages] = useState([]);
   const [orderedItems, setOrderedItems] = useState({}); // Track placed orders
   const token = localStorage.getItem("token");
-  const navigate = useNavigate();
 
   const fetchUserFromToken = async () => {
     try {
@@ -105,17 +103,15 @@ const MyCart = () => {
       });
   
       if (response.status === 201) {
-        const { _id } = response.data.order; // Use `_id` from the response
-        // console.log("id is ", _id);
+        const { _id } = response.data.order; 
         setOtpMessages((prev) => [
           ...prev,
           `Your OTP for ${item.name} is: ${otp}. Please inform the seller.`,
         ]);
   
-        // Store order._id in state instead of item._id
         setOrderedItems((prev) => ({
           ...prev,
-          [item._id]: { ordered: true, orderId: _id, otp: otp }, // Use `_id` here
+          [item._id]: { ordered: true, orderId: _id, otp: otp }, 
         }));
   
         alert(`Order placed successfully for ${item.name}! Your OTP: ${otp}`);
@@ -123,8 +119,14 @@ const MyCart = () => {
         await removeItem(item._id);
       }
     } catch (error) {
+      if (error.response?.status === 400 && error.response?.data?.error === 'You cannot buy an item listed by you') {
+        alert("You cannot buy an item listed by you");
+        await removeItem(item._id);
+      } 
+      else {
       console.error("Error placing order:", error);
       setError("Failed to place order.");
+      }
     }
   };
     
@@ -133,7 +135,6 @@ const MyCart = () => {
       const newOtp = generateOtp();
       const hashedOtp = await hashOtp(newOtp);
   
-      // Retrieve order._id from orderedItems state
       const orderId = orderedItems[item._id]?.orderId;
   
       if (!orderId) {
@@ -143,7 +144,7 @@ const MyCart = () => {
       }
   
       await axios.put(
-        `http://localhost:5001/api/order/${orderId}`, // Use order._id
+        `http://localhost:5001/api/order/${orderId}`, 
         { hashedotp: hashedOtp },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -171,7 +172,7 @@ const MyCart = () => {
   const totalAmount = cartItems.reduce((acc, item) => acc + item.price, 0);
 
   return (
-    <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
+    <div style={{ padding: "200px", maxWidth: "1200px", margin: "0 auto" }}>
       <h1>My Cart</h1>
 
       {error && <p style={{ color: "red" }}>{error}</p>}

@@ -11,8 +11,7 @@
     const [orderedItems, setOrderedItems] = useState({}); // State to track ordered items with OTP
     
     const token = localStorage.getItem("token");
-
-    // Fetch user details from token
+   
     const fetchUserFromToken = async () => {
       try {
         const response = await axios.get("http://localhost:5001/api/user/profile", {

@@ -28,6 +28,7 @@
     "jwt-decode": "^4.0.0",
     "mongoose": "^8.9.5",
     "passport": "^0.7.0",
-    "passport-cas": "^0.1.1"
+    "passport-cas": "^0.1.1",
+    "xml2js": "^0.6.2"
   }
 }

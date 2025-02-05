@@ -5,6 +5,7 @@ import "../styles/DeliverItems2.css"; // Custom CSS for styling
 const DeliverItems = () => {
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState(null);
+
   const [newItem, setNewItem] = useState({
     name: "",
     price: "",
@@ -61,10 +62,6 @@ const DeliverItems = () => {
   // Handle form submission to add a new item
   const handleAddItem = async (e) => {
     e.preventDefault();
-    if (!token) {
-      console.error("No token found");
-      return;
-    }
     try {
       const response = await axios.post(
         "http://localhost:5001/api/items",

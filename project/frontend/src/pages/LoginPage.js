@@ -1,35 +1,31 @@
-import React, { useState, useRef,useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import ReCAPTCHA from 'react-google-recaptcha';
 
 const LoginPage = () => {
-  const navigate = useNavigate(); // React Router v6 navigation hook
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [recaptchaToken, setRecaptchaToken] = useState('');
-  const captcharef = useRef(); // Create a ref for the ReCAPTCHA
+  const captcharef = useRef();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      alert('You are already logged in.Redirecting to profile page..');
+      alert('You are already logged in. Redirecting to the profile page...');
       navigate('/profile');
     }
   }, [navigate]);
 
-  // Handle reCAPTCHA response
   const handleRecaptchaChange = (value) => {
     setRecaptchaToken(value);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-
-    // Reset the ReCAPTCHA
     if (captcharef.current) {
       captcharef.current.reset();
     }
@@ -38,17 +34,13 @@ const LoginPage = () => {
       const response = await axios.post('http://localhost:5001/api/auth/login', {
         email,
         password,
-        recaptchaToken, // Include the reCAPTCHA token in the request body
+        recaptchaToken,
       });
 
       if (response.status === 200) {
         const { message, token } = response.data;
-
-        // Store token in localStorage
         localStorage.setItem('token', token);
         setSuccess(message);
-
-        // Redirect to the dashboard
         setTimeout(() => {
           navigate('/profile');
         }, 1000);
@@ -57,6 +49,15 @@ const LoginPage = () => {
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
     }
   };
+
+
+
+
+  const handleCasLogin = () => {
+    const serviceUrl = encodeURIComponent("http://localhost:5001/api/auth/cas/callback");
+    window.location.href = `https://login.iiit.ac.in/cas/login?service=${serviceUrl}`;
+  };
+
 
   const styles = {
     container: {
@@ -109,7 +110,6 @@ const LoginPage = () => {
       cursor: 'pointer',
     },
   };
-
   return (
     <div style={styles.container}>
       <form onSubmit={handleSubmit} style={styles.form}>
@@ -141,21 +141,26 @@ const LoginPage = () => {
 
         <div style={{ marginBottom: '15px' }}>
           <ReCAPTCHA
-            sitekey="6LcAHMQqAAAAAM1BZXN9L8Utqpvlv6Pb5aXi0Fix" // Replace with your actual Google reCAPTCHA site key
+            sitekey="6LcAHMQqAAAAAM1BZXN9L8Utqpvlv6Pb5aXi0Fix"
             onChange={handleRecaptchaChange}
-            ref={captcharef} // Attach the ref to the ReCAPTCHA component
+            ref={captcharef}
           />
         </div>
 
-        <button type="submit" style={styles.button}>
-          Login
-        </button>
+        <button type="submit" style={styles.button}>Login</button>
 
         <div
           style={styles.link}
-          onClick={() => navigate('/')} // Redirect to register page
+          onClick={() => navigate('/')} 
         >
           Register here
+        </div>
+
+        <div
+          style={styles.link}
+          onClick={handleCasLogin} 
+        >
+          Login with CAS
         </div>
       </form>
     </div>
@@ -163,3 +168,4 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
+

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-// import ReCAPTCHA from 'react-google-recaptcha';
 
 const RegisterPage = () => {
-  const navigate = useNavigate(); // React Router v6 navigation hook
+  const navigate = useNavigate();
   const [userData, setUserData] = useState({
     firstName: '',
     lastName: '',
@@ -13,49 +12,44 @@ const RegisterPage = () => {
     age: '',
     contactNumber: '',
   });
+  const [emailError, setEmailError] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      alert('You are already logged in.Redirecting to profile page..');
+      alert('You are already logged in. Redirecting to profile page..');
       navigate('/profile');
     }
   }, [navigate]);
   
-  // const [recaptchaToken, setRecaptchaToken] = useState("");
-  // const captcharef = useRef();
-  // Handle reCAPTCHA token change
-  // const handleRecaptchaChange = (value) => {
-  //   setRecaptchaToken(value);
-  // };
-
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'email') {
+      const iiitEmailRegex = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\.)?iiit\.ac\.in$/;
+      if (!iiitEmailRegex.test(value)) {
+        setEmailError('Only IIIT accounts are allowed.');
+      } else {
+        setEmailError('');
+      }
+    }
     setUserData({ ...userData, [name]: value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // if (!recaptchaToken) {
-    //   alert('Please complete the reCAPTCHA');
-    //   return;
-    // }
-    // // Reset the ReCAPTCHA
-    // if (captcharef.current) {
-    //   captcharef.current.reset();
-    // }
-    //
-     try {
+    if (emailError) {
+      alert(emailError);
+      return;
+    }
+    try {
       const response = await axios.post('http://localhost:5001/api/auth/register', {
         ...userData,
-        // recaptchaToken, // Include the reCAPTCHA token in the request body
       });
-
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
         alert('Registration successful!');
         setTimeout(() => {
-          navigate('/dashboard');
+          navigate('/profile');
         }, 1000);
       }
     } catch (error) {
@@ -99,6 +93,10 @@ const RegisterPage = () => {
       cursor: 'pointer',
       fontWeight: 'bold',
     },
+    errorText: {
+      color: 'red',
+      fontSize: '12px',
+    },
     link: {
       textAlign: 'center',
       marginTop: '15px',
@@ -112,7 +110,6 @@ const RegisterPage = () => {
     <div style={styles.container}>
       <form onSubmit={handleSubmit} style={styles.form}>
         <h2>Register</h2>
-
         <div style={styles.inputGroup}>
           <label>First Name:</label>
           <input
@@ -124,7 +121,6 @@ const RegisterPage = () => {
             style={styles.input}
           />
         </div>
-
         <div style={styles.inputGroup}>
           <label>Last Name:</label>
           <input
@@ -136,7 +132,6 @@ const RegisterPage = () => {
             style={styles.input}
           />
         </div>
-
         <div style={styles.inputGroup}>
           <label>Email:</label>
           <input
@@ -147,8 +142,8 @@ const RegisterPage = () => {
             required
             style={styles.input}
           />
+          {emailError && <p style={styles.errorText}>{emailError}</p>}
         </div>
-
         <div style={styles.inputGroup}>
           <label>Password:</label>
           <input
@@ -160,7 +155,6 @@ const RegisterPage = () => {
             style={styles.input}
           />
         </div>
-
         <div style={styles.inputGroup}>
           <label>Age:</label>
           <input
@@ -172,7 +166,6 @@ const RegisterPage = () => {
             style={styles.input}
           />
         </div>
-
         <div style={styles.inputGroup}>
           <label>Contact Number:</label>
           <input
@@ -184,24 +177,10 @@ const RegisterPage = () => {
             style={styles.input}
           />
         </div>
-
-        {/* <div style={{ marginBottom: '15px' }}>
-          <ReCAPTCHA
-            // sitekey="6LcAHMQqAAAAAM1BZXN9L8Utqpvlv6Pb5aXi0Fix" 
-            sitekey="6LcAHMQqAAAAAM1BZXN9L8Utqpvlv6Pb5aXi0Fix"// Replace with your actual Google reCAPTCHA site key
-            onChange={handleRecaptchaChange}
-            ref={captcharef}
-          />
-        </div>
- */}
         <button type="submit" style={styles.button}>
           Register
         </button>
-
-        <div
-          style={styles.link}
-          onClick={() => navigate('/login')} // Redirect to login page
-        >
+        <div style={styles.link} onClick={() => navigate('/login')}>
           Already have an account? Login instead.
         </div>
       </form>

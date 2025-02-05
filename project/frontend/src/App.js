@@ -12,7 +12,8 @@
   import RegisterPage from './pages/RegisterPage';
   import LoginPage from './pages/LoginPage';
   import AllItems from './pages/AllItems';
-
+  import AuthRoute from './main/AuthRoute';
+  import CasAuthHandler from './pages/CasAuthHandler';
 
   const App = () => {
     return (
@@ -24,16 +25,17 @@
 
           <Route path="/" exact element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/profile" exact element={<Profile />} />     
-          <Route path="/dashboard" exact element={<Dashboard />} />
-          <Route path="/search-items" exact element={<Search />} />
-          <Route path="/items/:id" element={<ItemPage />} />
-          <Route path="/orders" exact element={<Orders />} />
-          <Route path="/deliver-items" exact element={<DeliverItems/>} />
-          <Route path="/all-items" exact element={<AllItems />} />
-          <Route path="/my-cart" exact element={<MyCart />} />
-          <Route path="/support" exact element={<Support />} />
-          <Route path="/items/:itemId" exact element={<ItemPage />} />
+          <Route path="/cas-auth" element={<CasAuthHandler />} />
+         {/* Protected Routes - Require Authentication */}
+          <Route path="/profile" exact element={<AuthRoute element={<Profile />} />} />
+          <Route path="/dashboard" exact element={<AuthRoute element={<Dashboard />} />} />
+          <Route path="/search-items" exact element={<AuthRoute element={<Search />} />} />
+          <Route path="/items/:id" element={<AuthRoute element={<ItemPage />} />} />
+          <Route path="/orders" exact element={<AuthRoute element={<Orders />} />} />
+          <Route path="/deliver-items" exact element={<AuthRoute element={<DeliverItems />} />} />
+          <Route path="/all-items" exact element={<AuthRoute element={<AllItems />} />} />
+          <Route path="/my-cart" exact element={<AuthRoute element={<MyCart />} />} />
+          <Route path="/support" exact element={<AuthRoute element={<Support />} />} />
         </Routes>
           </div>
       </Router>

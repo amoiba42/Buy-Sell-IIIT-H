@@ -14,7 +14,7 @@ const Search = () => {
   const navigate = useNavigate();
 
   const token = localStorage.getItem("token");
-
+  
   useEffect(() => {
     const fetchItems = async () => {
       try {

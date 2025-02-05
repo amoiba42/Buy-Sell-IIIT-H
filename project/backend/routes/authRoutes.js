@@ -4,7 +4,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import axios from 'axios'; // Missing import
 import { signToken, verifyToken } from './jwt.js';
-
+import xml2js from 'xml2js';
 const router = express.Router();
 const SECRET = process.env.JWT_SECRET || 'defaultSecret';
 const RECAPTCHA_SECRET_KEY = process.env.RECAPTCHA_SECRET_KEY || 'your-recaptcha-secret-key';
@@ -15,27 +15,19 @@ const RECAPTCHA_SECRET_KEY = process.env.RECAPTCHA_SECRET_KEY || 'your-recaptcha
 router.post('/register', async (req, res) => {
     const { firstName, lastName, email, password, age, contactNumber} = req.body;
 
-    try {
-        
+    try { 
         // Check if user already exists
         const userExists = await User.findOne({ email });
         if (userExists) {
             return res.status(400).json({ message: 'User already exists' });
         }
-        // Verify reCAPTCHA token
-        // const isCaptchaValid = await verifyRecaptcha(recaptchaToken);
-        // if (!isCaptchaValid) {
-        //     return res.status(400).json({ message: 'Invalid reCAPTCHA. Please try again.' });
-        // }
 
-        // Hash the password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password,salt );
 
-        // Create and save the user
         const user = new User({ firstName, lastName, email, password: hashedPassword, age, contactNumber });
         await user.save();
-
+        
         res.status(201).json({ message: 'User registered successfully' });
     } catch (error) {
         console.error('Error during registration:', error.message);
@@ -46,28 +38,17 @@ router.post('/register', async (req, res) => {
 // Login route
 router.post('/login', async (req, res) => {
     const { email, password, recaptchaToken } = req.body;
-    console.log('mkc');
     try {
         
-        // Find user by email
         const user = await User.findOne({ email });
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        console.log('mkc1');
-        const salt = await bcrypt.genSalt(10);
-        let newp = await bcrypt.hash(password, salt);
-        // let newp= await bcrypt.hash(password, 10);
         // Check if the password matches
-        console.log('p1', password);
-        console.log('p9',newp);
-        console.log('p2', user.password);
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            console.log('p3');
             return res.status(401).json({ message: 'Invalid credentials' });
         }
-        console.log('mkc2');
 
         
         // Verify reCAPTCHA token
@@ -75,17 +56,91 @@ router.post('/login', async (req, res) => {
         if (!isCaptchaValid) {
             return res.status(400).json({ message: 'Invalid reCAPTCHA. Please try again.' });
         }
-        console.log('mkc3');
         // Generate a JWT token
         const token = signToken(user);
         console.log('my token', token);
         res.status(200).json({ token, message: 'Login successful' });
     } catch (error) {
-        console.log('mkc4');
         console.error('Error during login:', error.message);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 });
+
+
+router.get("/cas/callback", async (req, res) => {
+    console.log("CAS Callback");
+    const { ticket } = req.query;
+    const service = "http://localhost:5001/api/auth/cas/callback";
+    console.log(ticket);
+    if (!ticket) {
+      console.error("Missing CAS ticket");
+      return res.status(400).json({ message: "Missing CAS ticket" });
+    }
+  
+    try {
+      // Verify the CAS ticket
+      const casResponse = await axios.get(
+        `https://login.iiit.ac.in/cas/serviceValidate?ticket=${ticket}&service=${service}`
+      );
+      console.log(casResponse.data);
+  
+      xml2js.parseString(casResponse.data, async (err, result) => {
+        if (err) {
+          console.error("XML Parsing Error:", err);
+          return res.status(500).json({ message: "Error parsing CAS response" });
+        }
+  
+        const success = result["cas:serviceResponse"]["cas:authenticationSuccess"];
+        if (!success) {
+          console.error("CAS authentication failed");
+          return res.status(401).json({ message: "CAS authentication failed" });
+        }
+  
+        const email = success[0]["cas:user"][0];
+        const casAttributes = success[0]["cas:attributes"] || {};
+        const firstName = casAttributes["cas:FirstName"]?.[0] || "Unknown";
+        const lastName = casAttributes["cas:LastName"]?.[0] || "Unknown";
+  
+        // Random values for required fields
+        const randomAge = Math.floor(Math.random() * (60 - 18 + 1)) + 18;
+        const randomContactNumber = `${Math.floor(Math.random() * 1000000000) + 9000000000}`;
+  
+        // Check if user exists or create new one
+        let user = await User.findOne({ email });
+        if (!user) {
+          const hashedPassword = await bcrypt.hash("cas-authenticated", 10);
+          const newUser = new User({
+            email,
+            firstName,
+            lastName,
+            age: randomAge,
+            contactNumber: randomContactNumber,
+            password: hashedPassword,
+            cart: [],
+            sellerReviews: [],
+          });
+  
+          try {
+            user = await newUser.save();
+          } catch (err) {
+            console.error("Error creating CAS user:", err);
+            return res.status(500).json({ message: "Error creating CAS user" });
+          }
+        }
+  
+        // Generate JWT token
+        const token = signToken(user);
+        
+        // Redirect with token
+        res.redirect(`http://localhost:3000/cas-auth?token=${token}`);
+      });
+    } catch (error) {
+        console.log('error', error.stack);
+      console.error("CAS Login Error:", error.message);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
 // Function to verify reCAPTCHA token
 const verifyRecaptcha = async (recaptchaToken) => {
     try {
@@ -107,6 +162,7 @@ router.get('/protect', (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
 
     if (!token) {
+        navigate('/login');
         return res.status(401).json({ message: 'Access denied' });
     }
 
@@ -118,5 +174,6 @@ router.get('/protect', (req, res) => {
         res.status(401).json({ message: 'Invalid token' });
     }
 });
+
 
 export default router;

@@ -12,6 +12,8 @@ import axios from 'axios';
 import bodyParser from 'body-parser';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import bcrypt from "bcryptjs";
+import xml2js from 'xml2js';
+
 
 dotenv.config({ path: './config/.env' });
 
@@ -41,6 +43,82 @@ const connectTodb = async () => {
 // **Routes**
 // Authentication routes
 app.use('/api/auth', authRoutes);
+
+
+//---------------(***USER---APIS***)----------------------------------
+app.get("/cas/callback", async (req, res) => {
+  console.log("CAS Callback in app");
+  const { ticket } = req.query;
+  const service = "http://localhost:5001/auth/cas/callback";
+  console.log(ticket);
+  if (!ticket) {
+    console.error("Missing CAS ticket");
+    return res.status(400).json({ message: "Missing CAS ticket" });
+  }
+
+  try {
+    // Verify the CAS ticket
+    const casResponse = await axios.get(
+      `https://login.iiit.ac.in/cas/serviceValidate?ticket=${ticket}&service=${service}`
+    );
+    console.log(casResponse.data);
+
+    xml2js.parseString(casResponse.data, async (err, result) => {
+      if (err) {
+        console.error("XML Parsing Error:", err);
+        return res.status(500).json({ message: "Error parsing CAS response" });
+      }
+
+      const success = result["cas:serviceResponse"]["cas:authenticationSuccess"];
+      if (!success) {
+        console.error("CAS authentication failed");
+        return res.status(401).json({ message: "CAS authentication failed" });
+      }
+
+      const email = success[0]["cas:user"][0];
+      const casAttributes = success[0]["cas:attributes"] || {};
+      const firstName = casAttributes["cas:FirstName"]?.[0] || "Unknown";
+      const lastName = casAttributes["cas:LastName"]?.[0] || "Unknown";
+
+      // Random values for required fields
+      const randomAge = Math.floor(Math.random() * (60 - 18 + 1)) + 18;
+      const randomContactNumber = `+91${Math.floor(Math.random() * 1000000000) + 9000000000}`;
+
+      // Check if user exists or create new one
+      let user = await User.findOne({ email });
+      if (!user) {
+        const hashedPassword = await bcrypt.hash("cas-authenticated", 10);
+        const newUser = new User({
+          email,
+          firstName,
+          lastName,
+          age: randomAge,
+          contactNumber: randomContactNumber,
+          password: hashedPassword,
+          cart: [],
+          sellerReviews: [],
+        });
+
+        try {
+          user = await newUser.save();
+        } catch (err) {
+          console.error("Error creating CAS user:", err);
+          return res.status(500).json({ message: "Error creating CAS user" });
+        }
+      }
+
+      // Generate JWT token
+      const token = signToken(user);
+      
+      // Redirect with token
+      res.redirect(`http://localhost:3000/cas-auth?token=${token}`);
+    });
+  } catch (error) {
+      console.log('error', error.stack);
+    console.error("CAS Login Error:", error.message);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
 
 // 1. Add a new user
 app.post('/api/user', async (req, res) => {
@@ -109,7 +187,9 @@ app.delete('/api/user/profile', protect, async (req, res) => {
 });
 
 
-//-------------------------------------------------
+//---------------(***CHATBOT---APIS***)----------------------------------
+
+
 
 // 7. Chatbot API
 app.post('/api/chat', async (req, res) => {
@@ -128,14 +208,10 @@ app.post('/api/chat', async (req, res) => {
       { role: 'user', content: userMessage },
     ];
 
-    // Generate a response using the Google Gemini model
     const result = await model.generateContent([messages.map(msg => msg.content).join('\n')]); // Combine all message content for context
     const botMessage = result.response.text();
-
-    // Update the session history with the assistant's response
     chatSessions[sessionId] = [...messages, { role: 'assistant', content: botMessage }];
     
-    // Send the generated response back to the client
     res.json({ botMessage });
   } catch (err) {
     console.error('Error generating response:', err);
@@ -143,7 +219,9 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-//-------------------------------------------------
+//---------------(***ITEM---APIS***)----------------------------------
+
+
 
 // 8. Add a new item
 app.post("/api/items", verifyToken, async (req, res) => {
@@ -159,7 +237,7 @@ app.post("/api/items", verifyToken, async (req, res) => {
     console.log("seller_Id",seller_Id);
     const newItem = new Item({
       ...req.body,
-      sellerId: seller_Id, // Ensure item is linked to the logged-in user
+      sellerId: seller_Id, 
     });
 
     await newItem.save();
@@ -179,7 +257,7 @@ app.get('/api/items', verifyToken, async (req, res) => {
     console.log("Authenticated user:", req.user);
     const user_id=await User.findById(req.user.userId);
 
-    const items = await Item.find({ sellerId: user_id }); // Use authenticated user's ID
+    const items = await Item.find({ sellerId: user_id });
     console.log("Fetched items:", items);
 
     res.json(items);
@@ -194,10 +272,10 @@ app.get('/api/all-items', verifyToken, async (req, res) => {
   try {
     console.log("Received request to fetch all items");
     
-    // Add more detailed error logging
+    
     const items = await Item.find()
       .populate('sellerId', 'firstName lastName')
-      .lean()  // This makes the query faster and uses less memory
+      .lean()  
       .catch(err => {
         console.error("Database query error:", err);
         throw err;
@@ -225,11 +303,11 @@ app.get('/api/all-items', verifyToken, async (req, res) => {
   }
 });
 
+// 11. Fetch a single item by ID
 app.get('/api/items/:id', protect, async (req, res) => {
   const { id } = req.params;
   console.log("Received request to fetch item with ID:", id);
   try {
-    // Query by itemId (not _id)
     const item = await Item.findOne({ itemId: id });
 
     if (!item) {
@@ -242,31 +320,31 @@ app.get('/api/items/:id', protect, async (req, res) => {
   }
 });
 
-//-------------------------------------------------
+//---------------(***ORDER---APIS***)----------------------------------
 
-// API endpoint for creating an order
+
+
+// 12. API endpoint for creating an order
 app.post('/api/order',protect, async (req, res) => {
   try {
-    const { buyerId, sellerId, amount,nameofitem, hashedotp } = req.body;  // Assuming OTP is passed hashed from frontend
+    const { buyerId, sellerId, amount,nameofitem, hashedotp } = req.body;  
     console.log("Creating order for buyer:", buyerId, "and seller:", sellerId);
-
-    // Check if the buyer is trying to buy their own item
-    if (buyerId === sellerId) {
+    console.log("buyerid",buyerId);
+    console.log("sellerid",sellerId._id);
+    if (buyerId === sellerId._id) {
       return res.status(400).json({ error: 'You cannot buy an item listed by you' });
     }
 
-    // Create the new order
     const newOrder = new Order({
       buyerId: buyerId,
       sellerId: sellerId,
       amount: amount,
       nameofitem: nameofitem,
-      hashedotp: hashedotp, // Store the hashed OTP sent from frontend
+      hashedotp: hashedotp, 
     });
 
     const savedOrder = await newOrder.save();
     
-    // Respond with success and the order details
     console.log("order details",savedOrder);
     res.status(201).json({ message: 'Order created successfully', order: savedOrder });
     
@@ -276,26 +354,22 @@ app.post('/api/order',protect, async (req, res) => {
   }
 });
 
+// 13. Fetch all orders corresponding to a user
 app.get("/api/orders", protect, async (req, res) => {
-  console.log("Inside orders API");
-
   try {
-    const userId = req.user; // The user ID comes from the JWT token (req.user)
-    const { buyerId, sellerId, closed } = req.query; // Extracting query parameters
+    const userId = req.user; 
+    const { buyerId, sellerId, closed } = req.query;
 
-    let query = {}; // Start with an empty query object
+    let query = {}; 
 
-    // If buyerId is provided, filter orders by buyerId
     if (buyerId) {
       query.buyerId = buyerId;
     }
 
-    // If sellerId is provided, filter orders by sellerId
     if (sellerId) {
       query.sellerId = sellerId;
     }
 
-    // If closed is provided, filter orders by closed status
     if (closed !== undefined) {
       query.closed = closed === 'true'; // 'true' will be converted to boolean true
     }
@@ -308,7 +382,6 @@ app.get("/api/orders", protect, async (req, res) => {
       query.$or = [{ buyerId: userId }, { sellerId: userId }];
     }
 
-    // Fetch orders based on the constructed query
     const orders = await Order.find(query)
       .populate('sellerId', 'firstName lastName')
       .populate('buyerId', 'firstName lastName');
@@ -325,35 +398,32 @@ app.get("/api/orders", protect, async (req, res) => {
   }
 });
 
-
-app.put('/api/orders/:id/close', async (req, res) => {
+// 14. Close an order
+app.put('/api/orders/:id/close',protect, async (req, res) => {
   try {
-    const { otp } = req.body; // OTP sent from the frontend
+    const { otp } = req.body; 
     const orderId = req.params.id;
 
-    // Verify if the order exists
     const order = await Order.findById(orderId);
     if (!order) return res.status(404).send('Order not found');
 
-    // Check if OTP matches the stored hashed OTP
-    const isOtpValid = await bcrypt.compare(otp, order.hashedotp); // Assuming the OTP hash is stored in 'otpHash' field of the order
-
+    const isOtpValid = await bcrypt.compare(otp, order.hashedotp); 
     if (!isOtpValid) {
-      return res.status(400).json({ message: 'Incorrect OTP' }); // Return an appropriate error if OTP is incorrect
+      return res.status(400).json({ message: 'Incorrect OTP' }); 
     }
     console.log('OTP verified successfully');
-    // Proceed to close the order
     order.closed = true;
     await order.save();
 
-    res.status(200).json(order); // Return the updated order
+    res.status(200).json(order); 
   } catch (error) {
     console.error('Error closing order:', error);
     res.status(500).send('Server error');
   }
 });
 
-app.put("/api/order/:orderId", async (req, res) => {
+// 15. Update OTP for an order
+app.put("/api/order/:orderId",protect, async (req, res) => {
   try {
     const { orderId } = req.params;
     const { hashedotp } = req.body;
@@ -378,7 +448,7 @@ app.put("/api/order/:orderId", async (req, res) => {
 });
 
 
-
+// 16. Fetch all completed orders
 app.get("/api/orders/completed", protect, async (req, res) => {
   try {
     const completedOrders = await Order.find({ sellerId: req.user, closed: true }).populate('buyerId', 'firstName lastName').lean();
@@ -389,6 +459,7 @@ app.get("/api/orders/completed", protect, async (req, res) => {
   }
 });
 
+// 17. Fetch all pending orders
 app.get("/api/orders/purchased", protect, async (req, res) => {
   try {
     const purchasedItems = await Item.find({ buyerId: req.user, isDeliverable: false }).populate('sellerId', 'firstName lastName').lean();
@@ -399,7 +470,13 @@ app.get("/api/orders/purchased", protect, async (req, res) => {
   }
 });
 
-app.post('/api/user/cart', async (req, res) => {
+//---------------(***CART---APIS***)----------------------------------
+
+
+
+
+// 18. Add item to cart
+app.post('/api/user/cart',protect, async (req, res) => {
   try {
     console.log('Received request to add item to cart');
     const { itemId, userId } = req.body;
@@ -411,10 +488,8 @@ app.post('/api/user/cart', async (req, res) => {
       return res.status(400).json({ error: 'Invalid itemId format' });
     }
     console.log('okay');
-    // Convert itemId to ObjectId using new mongoose.Types.ObjectId
     const itemObjectId = new mongoose.Types.ObjectId(itemId);
 
-    // Fetch the user by their userId
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -431,7 +506,7 @@ app.post('/api/user/cart', async (req, res) => {
     // Add the item (as ObjectId) to the cart
     user.itemsInCart.push(itemObjectId);
     console.log('Item added to cart');
-    // Save the updated user
+
     await user.save();
     console.log('User saved');
     res.status(200).json({ message: 'Item added to cart', user });
@@ -443,8 +518,8 @@ app.post('/api/user/cart', async (req, res) => {
 });
 
 
-// Remove item from user's cart
-app.delete('/api/user/cart/:itemId', async (req, res) => {
+// 19. Remove item from user's cart
+app.delete('/api/user/cart/:itemId',protect, async (req, res) => {
   try {
     console.log('Received request to remove item from cart');
     const { userId } = req.body; 
@@ -479,8 +554,8 @@ app.delete('/api/user/cart/:itemId', async (req, res) => {
 });
 
 
-// Fetch everything from user's cart
-app.get('/api/user/cart/:userId', async (req, res) => {
+// 20. Fetch everything from user's cart
+app.get('/api/user/cart/:userId', protect,async (req, res) => {
   try {
     const { userId } = req.params;
     console.log('User ID:', userId);
@@ -498,7 +573,6 @@ app.get('/api/user/cart/:userId', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Filter items that are deliverable
     const deliverableItems = user.itemsInCart.filter(item => item.isDeliverable !== false);
     user.itemsInCart = deliverableItems;
 

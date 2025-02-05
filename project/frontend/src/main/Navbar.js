@@ -17,14 +17,26 @@ import "../styles/Navbar.css"; // Import the CSS file
 const Navbar = () => {
   const navigate = useNavigate();
 
+  // const handleLogout = () => {
+  //   localStorage.clear();
+  //   document.cookie.split(";").forEach((cookie) => {
+  //     document.cookie = `${cookie.split("=")[0].trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`;
+  //   });
+  //   window.location.href = "https://login.iiit.ac.in/cas/logout?service=http://localhost:5001/api/auth/cas/callback";
+  //   navigate("/login");
+  // };
+
   const handleLogout = () => {
+    // Clear localStorage and cookies in your application
     localStorage.clear();
     document.cookie.split(";").forEach((cookie) => {
       document.cookie = `${cookie.split("=")[0].trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`;
     });
-    navigate("/login");
+  
+    // Redirect to CAS logout URL
+    window.location.href = "https://login.iiit.ac.in/cas/logout?service=http://localhost:3000/login";
   };
-
+  
   return (
     <nav className="navbar">
       <ul className="navbar-links">
