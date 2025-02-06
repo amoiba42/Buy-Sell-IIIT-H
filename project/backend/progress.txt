@@ -1,7 +1,0 @@
-- completed support page
-
-
-to fix
-- why new users can't login
-- why support chat is working across accounts and sessions
-- why profile page is not able to fetch user specific info
